@@ -4,3 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+axum = { version = "0.8.1" }
+tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros"] }
+tracing = { version = "0.1.41" }
+tracing-subscriber = { version = "0.3.19" }
