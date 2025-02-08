@@ -1,4 +1,5 @@
+pub use env::*;
+
 mod config;
 mod env;
 
-pub use env::*;

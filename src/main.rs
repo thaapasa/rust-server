@@ -1,14 +1,14 @@
 use tracing::error;
-use crate::context::Environment;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
 
 use crate::app::start_server;
+use crate::context::Environment;
 use crate::error::InternalError;
+use crate::logging::configure_logging;
 
 mod app;
 mod context;
 mod error;
+mod logging;
 
 #[tokio::main]
 async fn main() {
@@ -25,11 +25,4 @@ async fn start_main() -> Result<(), InternalError> {
     let env = Environment::init()?;
     start_server(env).await;
     Ok(())
-}
-
-fn configure_logging() {
-    // Set up a tracing subscriber (logs). This is optional, but helpful.
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .init();
 }

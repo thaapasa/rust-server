@@ -1,7 +1,8 @@
-use config::{File, Environment as ConfigEnvironment, ConfigError};
+use config::{ConfigError, Environment as ConfigEnvironment, File};
+use config::Config as ConfigCrate;
 use serde::Deserialize;
+
 use crate::error::InternalError;
-use config::{Config as ConfigCrate};
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -19,13 +20,14 @@ impl Config {
         let settings = ConfigCrate::builder()
             .add_source(File::with_name(&file_name))
             .add_source(ConfigEnvironment::default())
-            .build().map_err(InternalError::from)?;
+            .build()
+            .map_err(InternalError::from)?;
 
         settings.try_deserialize().map_err(Into::into)
     }
 }
 
-impl From<ConfigError> for InternalError{
+impl From<ConfigError> for InternalError {
     fn from(value: ConfigError) -> Self {
         InternalError::message(format!("{value:?}"))
     }
