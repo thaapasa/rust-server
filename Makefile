@@ -13,4 +13,4 @@ lint:
 
 .PHONY: start
 start:
-	cargo run main
+	CONFIG_FILE=.dev/settings.toml cargo run main

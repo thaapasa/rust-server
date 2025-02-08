@@ -1,0 +1,4 @@
+environment_name = "Dev"
+
+[server]
+port = 8080
