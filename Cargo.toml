@@ -4,9 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-axum = { version = "0.8.1" }
-config = { version = "0.14.0" }
+async-trait = { version = "0.1.86" }
+axum = { version = "0.8.1", features = ["default"] }
+config = { version = "0.15.8" }
 serde = { version = "1.0.217", features = ["derive"] }
-tokio = { version = "1.43.0", features = ["rt-multi-thread", "macros"] }
+serde_json = { version = "1.0.138" }
+tokio = { version = "1.43.0", features = ["full"] }
 tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3.19" }

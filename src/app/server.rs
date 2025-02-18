@@ -1,10 +1,11 @@
+use axum::Extension;
 use tracing::info;
 
 use crate::app::routes::create_routes;
 use crate::context::Environment;
 
 pub async fn start_server(env: Environment) {
-    let app = create_routes();
+    let app = create_routes().layer(Extension(env.clone()));
 
     let addr = format!("0.0.0.0:{}", env.config.server.port);
     // Address to run our server on

@@ -5,6 +5,7 @@ use tracing::debug;
 use crate::context::config::Config;
 use crate::error::InternalError;
 
+#[derive(Debug, Clone)]
 pub struct Environment {
     pub config: Config,
 }

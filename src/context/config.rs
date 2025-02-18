@@ -1,16 +1,16 @@
-use config::{ConfigError, Environment as ConfigEnvironment, File};
 use config::Config as ConfigCrate;
+use config::{ConfigError, Environment as ConfigEnvironment, File};
 use serde::Deserialize;
 
 use crate::error::InternalError;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Config {
     pub environment_name: String,
     pub server: ServerSettings,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ServerSettings {
     pub port: u16,
 }
