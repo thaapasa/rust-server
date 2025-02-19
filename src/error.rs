@@ -1,3 +1,4 @@
+use sqlx::migrate::MigrateError;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 
@@ -19,5 +20,17 @@ impl Error for InternalError {
 impl InternalError {
     pub fn message(msg: String) -> Self {
         InternalError(msg)
+    }
+}
+
+impl From<sqlx::Error> for InternalError {
+    fn from(e: sqlx::Error) -> Self {
+        InternalError(format!("{}", e))
+    }
+}
+
+impl From<MigrateError> for InternalError {
+    fn from(e: MigrateError) -> Self {
+        InternalError(format!("{}", e))
     }
 }

@@ -8,11 +8,17 @@ use crate::error::InternalError;
 pub struct Config {
     pub environment_name: String,
     pub server: ServerSettings,
+    pub database: DatabaseSettings,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ServerSettings {
     pub port: u16,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct DatabaseSettings {
+    pub url: String,
 }
 
 impl Config {

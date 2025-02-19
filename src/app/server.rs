@@ -39,10 +39,7 @@ pub async fn start_server(env: Environment) {
 
     let addr = format!("0.0.0.0:{}", env.config.server.port);
     // Address to run our server on
-    info!(
-        "Listening on {addr}, environment: {}",
-        env.config.environment_name
-    );
+    info!("Listening on {addr}");
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     // Run the server
     axum::serve(listener, app).await.unwrap();

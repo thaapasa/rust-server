@@ -1,12 +1,14 @@
-use tracing::error;
+use tracing::{error, info};
 
 use crate::app::start_server;
 use crate::context::Environment;
+use crate::db::run_db_migrations;
 use crate::error::InternalError;
 use crate::logging::configure_logging;
 
 mod app;
 mod context;
+mod db;
 mod error;
 mod logging;
 
@@ -23,6 +25,8 @@ async fn main() {
 
 async fn start_main() -> Result<(), InternalError> {
     let env = Environment::init()?;
+    info!("Initialized environment {}", env.config.environment_name);
+    run_db_migrations(&env).await?;
     start_server(env).await;
     Ok(())
 }

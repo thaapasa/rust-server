@@ -1,4 +1,7 @@
 environment_name = "Dev"
 
 [server]
-port = 8080
+port = 6000
+
+[database]
+url = "postgreql://postgres:postgres@localhost:6010/postgres"
