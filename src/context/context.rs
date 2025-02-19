@@ -1,6 +1,7 @@
-use std::ops::Deref;
-
 use crate::context::Environment;
+use crate::db::DatabaseConnection;
+use crate::error::InternalError;
+use std::ops::Deref;
 
 pub struct Context {
     env: Environment,
@@ -9,6 +10,10 @@ pub struct Context {
 impl Context {
     pub fn env(&self) -> &Environment {
         &self.env
+    }
+
+    pub async fn db(&self) -> Result<DatabaseConnection, InternalError> {
+        self.env.db.acquire().await
     }
 }
 

@@ -11,6 +11,7 @@ mod context;
 mod db;
 mod error;
 mod logging;
+mod service;
 
 #[tokio::main]
 async fn main() {
@@ -24,7 +25,7 @@ async fn main() {
 }
 
 async fn start_main() -> Result<(), InternalError> {
-    let env = Environment::init()?;
+    let env = Environment::init().await?;
     info!("Initialized environment {}", env.config.environment_name);
     run_db_migrations(&env).await?;
     start_server(env).await;

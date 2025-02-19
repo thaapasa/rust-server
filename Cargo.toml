@@ -7,13 +7,15 @@ edition = "2021"
 async-trait = { version = "0.1.86" }
 axum = { version = "0.8.1", features = ["default", "tracing"] }
 bytes = { version = "1.10.0" }
+chrono = { version = "0.4.39" }
 config = { version = "0.15.8" }
 http = { version = "1.2.0" }
 http-body-util = { version = "0.1.2" }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = { version = "1.0.138" }
-sqlx = { version = "0.8.3", features = ["runtime-tokio", "postgres", "migrate"] }
+sqlx = { version = "0.8.3", features = ["runtime-tokio", "postgres", "migrate", "uuid", "chrono"] }
 tokio = { version = "1.43.0", features = ["full"] }
 tower-http = { version = "0.6.2", features = ["trace", "catch-panic"] }
 tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3.19" }
+uuid = { version = "1.13.2" }

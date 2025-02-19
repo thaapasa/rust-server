@@ -10,6 +10,7 @@ pub async fn run_db_migrations(env: &Environment) -> Result<(), InternalError> {
     let pool = PgPool::connect(&env.config.database.url)
         .await
         .map_err(InternalError::from)?;
+
     info!("Running DB migrations");
     MIGRATOR.run(&pool).await.map_err(InternalError::from)?;
     info!("DB migrations complete");
