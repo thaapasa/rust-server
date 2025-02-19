@@ -1,0 +1,11 @@
+services:
+  postgres_dev:
+    image: postgres:17.3
+    container_name: postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "6010:5432"
