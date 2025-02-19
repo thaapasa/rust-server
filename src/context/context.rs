@@ -1,6 +1,5 @@
 use crate::context::Environment;
-use crate::db::DatabaseConnection;
-use crate::error::InternalError;
+use crate::db::DatabasePool;
 use std::ops::Deref;
 
 pub struct Context {
@@ -12,8 +11,8 @@ impl Context {
         &self.env
     }
 
-    pub async fn db(&self) -> Result<DatabaseConnection, InternalError> {
-        self.env.db.acquire().await
+    pub fn db(&self) -> DatabasePool {
+        self.env.db.clone()
     }
 }
 
