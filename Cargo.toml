@@ -5,10 +5,14 @@ edition = "2021"
 
 [dependencies]
 async-trait = { version = "0.1.86" }
-axum = { version = "0.8.1", features = ["default"] }
+axum = { version = "0.8.1", features = ["default", "tracing"] }
+bytes = { version = "1.10.0" }
 config = { version = "0.15.8" }
+http = { version = "1.2.0" }
+http-body-util = { version = "0.1.2" }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = { version = "1.0.138" }
 tokio = { version = "1.43.0", features = ["full"] }
+tower-http = { version = "0.6.2", features = ["trace", "catch-panic"] }
 tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3.19" }
