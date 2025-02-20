@@ -37,3 +37,29 @@ impl From<ApiThingData> for ThingData {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::app::models::ApiThing;
+    use assert_json::assert_json;
+    use chrono::Utc;
+    use serde_json::Value;
+    use uuid::uuid;
+
+    #[test]
+    fn test_thing_serialization() {
+        let thing = ApiThing {
+            id: uuid!("019524da-be46-7553-94c9-490815a51432"),
+            name: "Thingy".to_string(),
+            description: None,
+            created_at: Utc::now(),
+        };
+        let serialized = serde_json::to_string(&thing).unwrap();
+        let json: Value = serde_json::from_str(&serialized).unwrap();
+        assert_json!(json, {
+            "id": "019524da-be46-7553-94c9-490815a51432",
+            "name": "Thingy",
+            "description": null,
+        })
+    }
+}

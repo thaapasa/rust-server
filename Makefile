@@ -11,6 +11,10 @@ lint:
 	make check
 	make clippy
 
+.PHONY: test
+test:
+	cargo test
+
 .PHONY: start
 start:
 	CONFIG_FILE=.dev/settings.toml cargo run main
