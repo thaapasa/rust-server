@@ -16,32 +16,30 @@ pub trait Database {
         &mut self,
         query: impl Execute<'q, Postgres> + 'q,
     ) -> Result<T, InternalError> {
-        let rows = self.fetch_all(query).await?;
-        match rows.len() {
-            1 => Ok(rows.into_iter().next().unwrap()),
-            0 => Err(InternalError::message(
-                "No results for query, expected exactly one result".to_string(),
-            )),
-            _ => Err(InternalError::message(format!(
+        let mut rows = self.fetch_all(query).await?;
+        if rows.len() > 1 {
+            return Err(InternalError::message(format!(
                 "Too many result, expected exactly one result, received {}",
                 rows.len()
-            ))),
+            )));
         }
+        rows.pop().ok_or(InternalError::message(
+            "No results for query, expected exactly one result".to_string(),
+        ))
     }
 
     async fn fetch_optional<'q, T: for<'r> FromRow<'r, PgRow>>(
         &mut self,
         query: impl Execute<'q, Postgres> + 'q,
     ) -> Result<Option<T>, InternalError> {
-        let rows = self.fetch_all(query).await?;
-        match rows.len() {
-            0 => Ok(None),
-            1 => Ok(Some(rows.into_iter().next().unwrap())),
-            _ => Err(InternalError::message(format!(
+        let mut rows = self.fetch_all(query).await?;
+        if rows.len() > 1 {
+            return Err(InternalError::message(format!(
                 "Too many results, expected one or zero results, received {}",
                 rows.len()
-            ))),
+            )));
         }
+        Ok(rows.pop())
     }
 
     async fn execute<'q>(

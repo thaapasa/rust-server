@@ -1,6 +1,7 @@
 use sqlx::migrate::MigrateError;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
+use std::io;
 
 #[derive(Debug)]
 pub struct InternalError(String);
@@ -31,6 +32,12 @@ impl From<sqlx::Error> for InternalError {
 
 impl From<MigrateError> for InternalError {
     fn from(e: MigrateError) -> Self {
+        InternalError(format!("{}", e))
+    }
+}
+
+impl From<io::Error> for InternalError {
+    fn from(e: io::Error) -> Self {
         InternalError(format!("{}", e))
     }
 }

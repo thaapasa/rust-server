@@ -1,3 +1,4 @@
+use crate::error::InternalError;
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -24,6 +25,12 @@ impl ApiError {
             body: json!({ "error": "invalid_path_param" }),
         }
     }
+    pub fn internal() -> Self {
+        Self {
+            http_status: StatusCode::INTERNAL_SERVER_ERROR,
+            body: json!({ "error": "internal_server_error" }),
+        }
+    }
 }
 
 impl Display for ApiError {
@@ -46,5 +53,11 @@ impl IntoResponse for ApiError {
             Json(self.body),
         )
             .into_response()
+    }
+}
+
+impl From<InternalError> for ApiError {
+    fn from(_: InternalError) -> Self {
+        ApiError::internal()
     }
 }

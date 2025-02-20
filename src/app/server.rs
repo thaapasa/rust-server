@@ -4,6 +4,7 @@ use axum::extract::{MatchedPath, Request};
 use axum::http::{header, StatusCode};
 use http::Response;
 
+use crate::error::InternalError;
 use axum::Extension;
 use bytes::Bytes;
 use http_body_util::Full;
@@ -12,7 +13,7 @@ use tower_http::catch_panic::CatchPanicLayer;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
-pub async fn start_server(env: Environment) {
+pub async fn start_server(env: Environment) -> Result<(), InternalError> {
     let app = create_routes()
         .layer(
             TraceLayer::new_for_http()
@@ -40,10 +41,15 @@ pub async fn start_server(env: Environment) {
     let addr = format!("0.0.0.0:{}", env.config.server.port);
     // Address to run our server on
     info!("Listening on {addr}");
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .map_err(InternalError::from)?;
     // Run the server
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .await
+        .map_err(InternalError::from)?;
     info!("Server stopped");
+    Ok(())
 }
 
 fn handle_panic(_: Box<dyn Any + Send + 'static>) -> Response<Full<Bytes>> {

@@ -10,7 +10,7 @@ pub async fn get_thing_handler(
     SystemContext(mut ctx): SystemContext,
     InputPath(thing_id): InputPath<Uuid>,
 ) -> Result<Json<ApiThing>, ApiError> {
-    if let Some(thing) = find_thing(&mut ctx, thing_id).await.unwrap() {
+    if let Some(thing) = find_thing(&mut ctx, thing_id).await? {
         Ok(Json(thing.into()))
     } else {
         Err(ApiError::not_found())
