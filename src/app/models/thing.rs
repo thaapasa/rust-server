@@ -1,6 +1,8 @@
 use crate::db::DbThing;
 use crate::service::ThingData;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Deserialize, Debug)]
 pub struct ApiThingData {
@@ -10,19 +12,19 @@ pub struct ApiThingData {
 
 #[derive(Serialize, Debug)]
 pub struct ApiThing {
-    id: String,
+    id: Uuid,
     name: String,
     description: Option<String>,
-    created_at: String,
+    created_at: DateTime<Utc>,
 }
 
 impl From<DbThing> for ApiThing {
     fn from(x: DbThing) -> Self {
         Self {
-            id: x.id.to_string(),
+            id: x.id,
             name: x.name,
             description: x.description,
-            created_at: x.created_at.to_string(),
+            created_at: x.created_at,
         }
     }
 }
