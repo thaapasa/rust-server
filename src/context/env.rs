@@ -1,3 +1,4 @@
+use sqlx::PgPool;
 use std::env;
 use tracing::debug;
 
@@ -19,5 +20,9 @@ impl Environment {
         let config = Config::new_from_file(config_path)?;
         let db = DatabasePool::init(&config.database.url).await?;
         Ok(Environment { config, db })
+    }
+
+    pub fn db_pool(&self) -> &PgPool {
+        self.db.db_pool()
     }
 }

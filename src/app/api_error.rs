@@ -18,6 +18,12 @@ impl ApiError {
             body: json!({ "error": "not_found" }),
         }
     }
+    pub fn invalid_path_param() -> Self {
+        Self {
+            http_status: StatusCode::BAD_REQUEST,
+            body: json!({ "error": "invalid_path_param" }),
+        }
+    }
 }
 
 impl Display for ApiError {

@@ -59,6 +59,10 @@ impl DatabasePool {
         Ok(Self(Arc::new(pool)))
     }
 
+    pub fn db_pool(&self) -> &PgPool {
+        &self.0
+    }
+
     pub async fn acquire(&self) -> Result<DatabaseConnection, InternalError> {
         let conn = self.0.acquire().await.map_err(InternalError::from)?;
         Ok(DatabaseConnection(conn))
