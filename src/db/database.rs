@@ -7,10 +7,47 @@ use std::sync::Arc;
 
 #[async_trait]
 pub trait Database {
+    async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
+        &mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<Vec<T>, InternalError>;
+
     async fn fetch_one<'q, T: for<'r> FromRow<'r, PgRow>>(
         &mut self,
-        sql: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<T, InternalError>;
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<T, InternalError> {
+        let rows = self.fetch_all(query).await?;
+        match rows.len() {
+            1 => Ok(rows.into_iter().next().unwrap()),
+            0 => Err(InternalError::message(
+                "No results for query, expected exactly one result".to_string(),
+            )),
+            _ => Err(InternalError::message(format!(
+                "Too many result, expected exactly one result, received {}",
+                rows.len()
+            ))),
+        }
+    }
+
+    async fn fetch_optional<'q, T: for<'r> FromRow<'r, PgRow>>(
+        &mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<Option<T>, InternalError> {
+        let rows = self.fetch_all(query).await?;
+        match rows.len() {
+            0 => Ok(None),
+            1 => Ok(Some(rows.into_iter().next().unwrap())),
+            _ => Err(InternalError::message(format!(
+                "Too many results, expected one or zero results, received {}",
+                rows.len()
+            ))),
+        }
+    }
+
+    async fn execute<'q>(
+        &mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<(), InternalError>;
 }
 
 #[derive(Debug, Clone)]
@@ -30,13 +67,21 @@ impl DatabasePool {
 
 #[async_trait]
 impl Database for DatabasePool {
-    async fn fetch_one<'q, T: for<'r> FromRow<'r, PgRow>>(
+    async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
         &mut self,
-        sql: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<T, InternalError> {
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<Vec<T>, InternalError> {
         let mut conn = self.acquire().await?;
-        let row = conn.fetch_one(sql).await?;
+        let row = conn.fetch_all(query).await?;
         Ok(row)
+    }
+
+    async fn execute<'q>(
+        &mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<(), InternalError> {
+        let mut conn = self.acquire().await?;
+        conn.execute(query).await
     }
 }
 
@@ -44,12 +89,22 @@ pub struct DatabaseConnection(PoolConnection<Postgres>);
 
 #[async_trait]
 impl Database for DatabaseConnection {
-    async fn fetch_one<'q, T: for<'r> FromRow<'r, PgRow>>(
+    async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
         &mut self,
-        sql: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<T, InternalError> {
-        let row = self.0.fetch_one(sql).await?;
-        let data = T::from_row(&row)?;
-        Ok(data)
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<Vec<T>, InternalError> {
+        let rows = self.0.fetch_all(query).await?;
+        rows.into_iter()
+            .map(|row| T::from_row(&row))
+            .collect::<Result<_, _>>()
+            .map_err(InternalError::from)
+    }
+
+    async fn execute<'q>(
+        &mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<(), InternalError> {
+        self.0.execute(query).await?;
+        Ok(())
     }
 }

@@ -1,7 +1,5 @@
-use crate::context::SystemContext;
 use crate::db::DbThing;
-use crate::service::{add_new_thing, ThingData};
-use axum::Json;
+use crate::service::ThingData;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug)]
@@ -16,14 +14,6 @@ pub struct ApiThing {
     name: String,
     description: Option<String>,
     created_at: String,
-}
-
-pub async fn post_thing_handler(
-    SystemContext(mut ctx): SystemContext,
-    Json(thing_data): Json<ApiThingData>,
-) -> Json<ApiThing> {
-    let thing = add_new_thing(&mut ctx, thing_data.into()).await.unwrap();
-    Json(thing.into())
 }
 
 impl From<DbThing> for ApiThing {

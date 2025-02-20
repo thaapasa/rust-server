@@ -1,7 +1,7 @@
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::error::Error;
 use std::fmt::Display;
 
@@ -9,6 +9,15 @@ use std::fmt::Display;
 pub struct ApiError {
     http_status: StatusCode,
     body: Value,
+}
+
+impl ApiError {
+    pub fn not_found() -> Self {
+        Self {
+            http_status: StatusCode::NOT_FOUND,
+            body: json!({ "error": "not_found" }),
+        }
+    }
 }
 
 impl Display for ApiError {

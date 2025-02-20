@@ -1,24 +1,34 @@
 use crate::context::Context;
 use crate::db::{Database, DbThing};
 use crate::error::InternalError;
-use sqlx::QueryBuilder;
+use crate::service::find_thing;
+use sqlx::{FromRow, QueryBuilder};
+use uuid::Uuid;
 
 pub struct ThingData {
     pub name: String,
     pub description: Option<String>,
 }
 
+#[derive(Debug, FromRow)]
+pub struct InsertResult {
+    id: Uuid,
+}
+
 pub async fn add_new_thing(ctx: &mut Context, thing: ThingData) -> Result<DbThing, InternalError> {
-    let thing = ctx
+    let res = ctx
         .db()
-        .fetch_one(
+        .fetch_one::<InsertResult>(
             QueryBuilder::new("INSERT INTO things (name, description) VALUES (")
                 .push_bind(thing.name)
                 .push(", ")
                 .push_bind(thing.description)
-                .push(") RETURNING *")
+                .push(") RETURNING id")
                 .build(),
         )
         .await?;
-    Ok(thing)
+    let thing = find_thing(ctx, res.id).await?;
+    thing.ok_or(InternalError::message(
+        "Inserted thing not found from db".to_string(),
+    ))
 }
