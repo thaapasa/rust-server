@@ -8,34 +8,13 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{parse2, Error, Expr, LitStr, Token};
 
-/// This procedural macro allows you to construct URLs or URIs with all the variables
-/// automatically URL-encoded (using the urlencoding crate).
-///
-/// Usage:
-///
-/// ```ignore
-/// let uri = format_uri!("http://localhost/{path}/operation?param={param}");
-/// let uri = format_uri!("http://localhost/{path}/operation?param={param}",
-///     path=my.path,
-///     param=my.param
-/// );
-/// ```
-///
-/// To keep some variables unescaped, use the `:raw` suffix for them:
-///
-/// ```ignore
-/// let uri = format_uri!("{host:raw}/path?param={param}");
-/// let uri = format_uri!("{host:raw}/path?param={param}",
-///     host=my.host,
-///     param=my.param
-/// );
-/// ```
-
+/// Variable assignment
 struct Assignment {
     name: Ident,
     value: Expr,
 }
 
+/// The parsed template
 struct UriTemplate {
     span: Span,
     uri: String,
@@ -99,10 +78,7 @@ fn try_proc_format_uri(input: TokenStream) -> Result<TokenStream, Error> {
         span,
         uri,
         assignments,
-    } = match parse2::<UriTemplate>(input) {
-        Ok(val) => val,
-        Err(e) => return Err(e),
-    };
+    } = parse2::<UriTemplate>(input)?;
 
     // Index binding values by their name
     let bindings = build_lookup_map(assignments)?;

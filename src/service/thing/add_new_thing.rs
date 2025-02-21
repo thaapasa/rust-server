@@ -2,7 +2,8 @@ use crate::context::Context;
 use crate::db::{Database, DbThing};
 use crate::error::InternalError;
 use crate::service::find_thing;
-use sqlx::{FromRow, QueryBuilder};
+use macros::sql;
+use sqlx::FromRow;
 use uuid::Uuid;
 
 pub struct ThingData {
@@ -18,14 +19,13 @@ pub struct InsertResult {
 pub async fn add_new_thing(ctx: &mut Context, thing: ThingData) -> Result<DbThing, InternalError> {
     let res = ctx
         .db()
-        .fetch_one::<InsertResult>(
-            QueryBuilder::new("INSERT INTO things (name, description) VALUES (")
-                .push_bind(thing.name)
-                .push(", ")
-                .push_bind(thing.description)
-                .push(") RETURNING id")
-                .build(),
-        )
+        .fetch_one::<InsertResult>(sql!(
+            "INSERT INTO things (name, description)
+             VALUES ({name}, {description})
+             RETURNING id",
+            name = thing.name,
+            description = thing.description
+        ))
         .await?;
     let thing = find_thing(ctx, res.id).await?;
     thing.ok_or(InternalError::message(

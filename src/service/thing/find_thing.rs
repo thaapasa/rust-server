@@ -1,7 +1,7 @@
 use crate::context::Context;
 use crate::db::{Database, DbThing};
 use crate::error::InternalError;
-use sqlx::QueryBuilder;
+use macros::sql;
 use uuid::Uuid;
 
 pub async fn find_thing(
@@ -9,10 +9,6 @@ pub async fn find_thing(
     thing_id: Uuid,
 ) -> Result<Option<DbThing>, InternalError> {
     ctx.db()
-        .fetch_optional(
-            QueryBuilder::new("SELECT * FROM things WHERE id = ")
-                .push_bind(thing_id)
-                .build(),
-        )
+        .fetch_optional(sql!("SELECT * FROM things WHERE id = {thing_id}"))
         .await
 }

@@ -13,6 +13,7 @@ lint:
 
 .PHONY: test
 test:
+	cargo test -p macros
 	cargo test
 
 .PHONY: start
