@@ -3,20 +3,49 @@ name = "rust-server"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+[workspace]
+
+[workspace.dependencies]
 assert_json = { version = "0.1.0" }
 async-trait = { version = "0.1.86" }
-axum = { version = "0.8.1", features = ["default", "tracing"] }
+axum = { version = "0.8.1" }
 bytes = { version = "1.10.0" }
-chrono = { version = "0.4.39", features = ["serde"] }
+chrono = { version = "0.4.39" }
 config = { version = "0.15.8" }
 http = { version = "1.2.0" }
 http-body-util = { version = "0.1.2" }
-serde = { version = "1.0.217", features = ["derive"] }
+proc-macro2 = { version = "1.0.93" }
+quote = { version = "1.0.38" }
+regex = { version = "1.11.1" }
+serde = { version = "1.0.217" }
 serde_json = { version = "1.0.138" }
-sqlx = { version = "0.8.3", features = ["runtime-tokio", "postgres", "migrate", "uuid", "chrono"] }
-tokio = { version = "1.43.0", features = ["full"] }
-tower-http = { version = "0.6.2", features = ["trace", "catch-panic"] }
+sqlx = { version = "0.8.3" }
+syn = { version = "2.0.98" }
+tokio = { version = "1.43.0" }
+tower-http = { version = "0.6.2" }
 tracing = { version = "0.1.41" }
 tracing-subscriber = { version = "0.3.19" }
-uuid = { version = "1.13.2", features = ["serde"] }
+urlencoding = { version = "2.1.3" }
+uuid = { version = "1.13.2" }
+
+
+[dependencies]
+assert_json = { workspace = true }
+async-trait = { workspace = true }
+axum = { workspace = true, features = ["default", "tracing"] }
+bytes = { workspace = true }
+chrono = { workspace = true, features = ["serde"] }
+config = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sqlx = { workspace = true, features = ["runtime-tokio", "postgres", "migrate", "uuid", "chrono"] }
+tokio = { workspace = true, features = ["full"] }
+tower-http = { workspace = true, features = ["trace", "catch-panic"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+urlencoding = { workspace = true }
+uuid = { workspace = true, features = ["serde"] }
+
+macros = { path = "./macros" }

@@ -13,6 +13,9 @@ mod error;
 mod logging;
 mod service;
 
+#[cfg(test)]
+mod tests;
+
 #[tokio::main]
 async fn main() {
     configure_logging();
