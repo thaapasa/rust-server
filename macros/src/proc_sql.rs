@@ -121,7 +121,7 @@ fn try_proc_sql(input: TokenStream) -> Result<TokenStream, Error> {
     // instance using the statements and finally returns the encoded URI to the caller
     Ok(quote! {
         #(#statements)*
-        .build()
+            .build()
     })
 }
 

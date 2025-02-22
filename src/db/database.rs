@@ -1,25 +1,73 @@
 use crate::error::InternalError;
-use async_trait::async_trait;
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::PgRow;
 use sqlx::{Execute, Executor, FromRow, PgPool, Pool, Postgres};
 use std::sync::Arc;
 
-#[async_trait]
-pub trait Database {
-    async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
+#[derive(Debug)]
+pub enum Database {
+    DbPool(Arc<Pool<Postgres>>),
+    DbConnection(Arc<Pool<Postgres>>, PoolConnection<Postgres>),
+}
+
+impl Clone for Database {
+    fn clone(&self) -> Self {
+        match self {
+            Self::DbPool(pool) => Self::DbPool(pool.clone()),
+            _ => panic!("Can't clone DB connections"),
+        }
+    }
+}
+
+impl Database {
+    pub async fn init_pool(url: &str) -> Result<Self, InternalError> {
+        let pool = PgPool::connect(url).await.map_err(InternalError::from)?;
+        Ok(Self::DbPool(Arc::new(pool)))
+    }
+
+    pub async fn fetch_rows<'q>(
         &mut self,
         query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<Vec<T>, InternalError>;
+    ) -> Result<Vec<PgRow>, InternalError> {
+        match self {
+            Self::DbPool(pool) => {
+                let mut conn = pool.acquire().await.map_err(InternalError::from)?;
+                conn.fetch_all(query).await.map_err(InternalError::from)
+            }
+            Self::DbConnection(_, conn) => conn.fetch_all(query).await.map_err(InternalError::from),
+        }
+    }
 
-    async fn fetch_one<'q, T: for<'r> FromRow<'r, PgRow>>(
+    pub async fn connection(&self) -> Result<Self, InternalError> {
+        let pool = match self {
+            Self::DbPool(pool) => pool,
+            Self::DbConnection(pool, _) => pool,
+        };
+        Ok(Self::DbConnection(
+            pool.clone(),
+            pool.acquire().await.map_err(InternalError::from)?,
+        ))
+    }
+
+    pub async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
+        &mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<Vec<T>, InternalError> {
+        self.fetch_rows(query)
+            .await?
+            .into_iter()
+            .map(|row| FromRow::from_row(&row).map_err(InternalError::from))
+            .collect()
+    }
+
+    pub async fn fetch_one<'q, T: for<'r> FromRow<'r, PgRow>>(
         &mut self,
         query: impl Execute<'q, Postgres> + 'q,
     ) -> Result<T, InternalError> {
         let mut rows = self.fetch_all(query).await?;
         if rows.len() > 1 {
             return Err(InternalError::message(format!(
-                "Too many result, expected exactly one result, received {}",
+                "Too many results, expected exactly one result, received {}",
                 rows.len()
             )));
         }
@@ -28,7 +76,7 @@ pub trait Database {
         ))
     }
 
-    async fn fetch_optional<'q, T: for<'r> FromRow<'r, PgRow>>(
+    pub async fn fetch_optional<'q, T: for<'r> FromRow<'r, PgRow>>(
         &mut self,
         query: impl Execute<'q, Postgres> + 'q,
     ) -> Result<Option<T>, InternalError> {
@@ -40,73 +88,5 @@ pub trait Database {
             )));
         }
         Ok(rows.pop())
-    }
-
-    async fn execute<'q>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<(), InternalError>;
-}
-
-#[derive(Debug, Clone)]
-pub struct DatabasePool(Arc<Pool<Postgres>>);
-
-impl DatabasePool {
-    pub async fn init(url: &str) -> Result<Self, InternalError> {
-        let pool = PgPool::connect(url).await.map_err(InternalError::from)?;
-        Ok(Self(Arc::new(pool)))
-    }
-
-    pub fn db_pool(&self) -> &PgPool {
-        &self.0
-    }
-
-    pub async fn acquire(&self) -> Result<DatabaseConnection, InternalError> {
-        let conn = self.0.acquire().await.map_err(InternalError::from)?;
-        Ok(DatabaseConnection(conn))
-    }
-}
-
-#[async_trait]
-impl Database for DatabasePool {
-    async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<Vec<T>, InternalError> {
-        let mut conn = self.acquire().await?;
-        let row = conn.fetch_all(query).await?;
-        Ok(row)
-    }
-
-    async fn execute<'q>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<(), InternalError> {
-        let mut conn = self.acquire().await?;
-        conn.execute(query).await
-    }
-}
-
-pub struct DatabaseConnection(PoolConnection<Postgres>);
-
-#[async_trait]
-impl Database for DatabaseConnection {
-    async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<Vec<T>, InternalError> {
-        let rows = self.0.fetch_all(query).await?;
-        rows.into_iter()
-            .map(|row| T::from_row(&row))
-            .collect::<Result<_, _>>()
-            .map_err(InternalError::from)
-    }
-
-    async fn execute<'q>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<(), InternalError> {
-        self.0.execute(query).await?;
-        Ok(())
     }
 }

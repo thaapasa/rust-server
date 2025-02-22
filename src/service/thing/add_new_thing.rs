@@ -1,5 +1,5 @@
 use crate::context::Context;
-use crate::db::{Database, DbThing};
+use crate::db::DbThing;
 use crate::error::InternalError;
 use crate::service::find_thing;
 use macros::sql;
@@ -16,7 +16,10 @@ pub struct InsertResult {
     id: Uuid,
 }
 
-pub async fn add_new_thing(ctx: &mut Context, thing: ThingData) -> Result<DbThing, InternalError> {
+pub async fn add_new_thing(
+    ctx: &mut impl Context,
+    thing: ThingData,
+) -> Result<DbThing, InternalError> {
     let res = ctx
         .db()
         .fetch_one::<InsertResult>(sql!(

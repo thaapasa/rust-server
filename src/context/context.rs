@@ -1,25 +1,33 @@
 use crate::context::Environment;
-use crate::db::DatabasePool;
+use crate::db::Database;
+use crate::error::InternalError;
 use std::ops::Deref;
 
-pub struct Context {
-    env: Environment,
+pub trait Context {
+    fn env(&self) -> &Environment;
+
+    fn db(&mut self) -> &mut Database;
 }
 
-impl Context {
-    pub fn env(&self) -> &Environment {
+pub struct ContextImpl {
+    env: Environment,
+    db: Database,
+}
+
+impl Context for ContextImpl {
+    fn env(&self) -> &Environment {
         &self.env
     }
 
-    pub fn db(&self) -> DatabasePool {
-        self.env.db.clone()
+    fn db(&mut self) -> &mut Database {
+        &mut self.db
     }
 }
 
-pub struct SystemContext(pub Context);
+pub struct SystemContext(pub ContextImpl);
 
 impl Deref for SystemContext {
-    type Target = Context;
+    type Target = ContextImpl;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -27,7 +35,8 @@ impl Deref for SystemContext {
 }
 
 impl SystemContext {
-    pub fn new(env: Environment) -> Self {
-        SystemContext(Context { env })
+    pub async fn new(env: Environment) -> Result<Self, InternalError> {
+        let db = env.db_conn().await?;
+        Ok(SystemContext(ContextImpl { env, db }))
     }
 }

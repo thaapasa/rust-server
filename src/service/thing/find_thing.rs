@@ -1,11 +1,11 @@
 use crate::context::Context;
-use crate::db::{Database, DbThing};
+use crate::db::DbThing;
 use crate::error::InternalError;
 use macros::sql;
 use uuid::Uuid;
 
 pub async fn find_thing(
-    ctx: &mut Context,
+    ctx: &mut impl Context,
     thing_id: Uuid,
 ) -> Result<Option<DbThing>, InternalError> {
     ctx.db()

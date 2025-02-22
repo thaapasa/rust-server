@@ -1,15 +1,15 @@
-use sqlx::PgPool;
+use sqlx::{Pool, Postgres};
 use std::env;
 use tracing::debug;
 
 use crate::context::config::Config;
-use crate::db::DatabasePool;
+use crate::db::Database;
 use crate::error::InternalError;
 
 #[derive(Debug, Clone)]
 pub struct Environment {
     pub config: Config,
-    pub db: DatabasePool,
+    pub db: Database,
 }
 
 impl Environment {
@@ -18,11 +18,18 @@ impl Environment {
         let config_path = env::var("CONFIG_FILE").unwrap_or_else(|_| "setting.toml".to_string());
         debug!("Reading configuration from {config_path}");
         let config = Config::new_from_file(config_path)?;
-        let db = DatabasePool::init(&config.database.url).await?;
+        let db = Database::init_pool(&config.database.url).await?;
         Ok(Environment { config, db })
     }
 
-    pub fn db_pool(&self) -> &PgPool {
-        self.db.db_pool()
+    pub fn db_pool(&self) -> &Pool<Postgres> {
+        match &self.db {
+            Database::DbPool(pool) => pool,
+            _ => panic!("Environment setup failure; DB is not pool"),
+        }
+    }
+
+    pub async fn db_conn(&self) -> Result<Database, InternalError> {
+        self.db.connection().await
     }
 }

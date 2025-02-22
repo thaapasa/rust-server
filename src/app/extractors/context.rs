@@ -12,7 +12,7 @@ where
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         match Extension::<Environment>::from_request_parts(parts, state).await {
-            Ok(env) => Ok(SystemContext::new(env.0)),
+            Ok(env) => SystemContext::new(env.0).await.map_err(ApiError::from),
             Err(e) => panic!("Environment missing: {e}"),
         }
     }
