@@ -5,6 +5,7 @@ use axum::Json;
 use serde_json::{json, Value};
 use std::error::Error;
 use std::fmt::Display;
+use tracing::error;
 
 #[derive(Debug)]
 pub struct ApiError {
@@ -25,7 +26,8 @@ impl ApiError {
             body: json!({ "error": "invalid_path_param" }),
         }
     }
-    pub fn internal() -> Self {
+    pub fn internal(e: InternalError) -> Self {
+        error!("{e}");
         Self {
             http_status: StatusCode::INTERNAL_SERVER_ERROR,
             body: json!({ "error": "internal_server_error" }),
@@ -57,7 +59,7 @@ impl IntoResponse for ApiError {
 }
 
 impl From<InternalError> for ApiError {
-    fn from(_: InternalError) -> Self {
-        ApiError::internal()
+    fn from(e: InternalError) -> Self {
+        ApiError::internal(e)
     }
 }

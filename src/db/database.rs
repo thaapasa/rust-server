@@ -1,7 +1,9 @@
 use crate::error::InternalError;
+use macros::sql;
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::PgRow;
 use sqlx::{Execute, Executor, FromRow, PgPool, Pool, Postgres};
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -88,5 +90,74 @@ impl Database {
             )));
         }
         Ok(rows.pop())
+    }
+
+    pub async fn execute<'q>(
+        &mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<(), InternalError> {
+        match self {
+            Self::DbPool(pool) => {
+                let mut conn = pool.acquire().await.map_err(InternalError::from)?;
+                conn.execute(query).await.map_err(InternalError::from)?;
+            }
+            Self::DbConnection(_, conn) => {
+                conn.execute(query).await.map_err(InternalError::from)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+pub struct TransactionalDatabase<'a> {
+    db: &'a mut Database,
+    savepoint: Option<String>,
+}
+
+impl Deref for TransactionalDatabase<'_> {
+    type Target = Database;
+
+    fn deref(&self) -> &Self::Target {
+        self.db
+    }
+}
+
+impl DerefMut for TransactionalDatabase<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.db
+    }
+}
+
+impl<'a> TransactionalDatabase<'a> {
+    pub async fn begin(
+        db: &'a mut Database,
+        savepoint: Option<String>,
+    ) -> Result<Self, InternalError> {
+        if let Some(savepoint) = savepoint.clone() {
+            db.execute(sql!("SAVEPOINT {savepoint:raw}")).await?;
+        } else {
+            db.execute(sql!("BEGIN")).await?;
+        }
+        Ok(Self { db, savepoint })
+    }
+
+    pub async fn rollback(self) -> Result<(), InternalError> {
+        if let Some(savepoint) = &self.savepoint {
+            self.db
+                .execute(sql!("ROLLBACK TO SAVEPOINT {savepoint:raw}"))
+                .await
+        } else {
+            self.db.execute(sql!("ROLLBACK")).await
+        }
+    }
+
+    pub async fn commit(self) -> Result<(), InternalError> {
+        if let Some(savepoint) = &self.savepoint {
+            self.db
+                .execute(sql!("RELEASE SAVEPOINT {savepoint:raw}"))
+                .await
+        } else {
+            self.db.execute(sql!("COMMIT")).await
+        }
     }
 }

@@ -16,26 +16,27 @@ struct Assignment {
 struct SqlQuery {
     query: String,
     assignments: Vec<Assignment>,
+    span: Span,
 }
 
-const BINDING_RE: &str = "_?\\{([a-zA-Z_][a-zA-Z0-9_]*)\\}";
+const BINDING_RE: &str = "_?\\{([a-zA-Z_][a-zA-Z0-9_]*(:[a-zA-Z_][a-zA-Z0-9_]*)*)\\}";
 
 impl Parse for SqlQuery {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let query = input.parse::<LitStr>()?;
-        if input.lookahead1().peek(Token![,]) {
+        let assignments = if input.lookahead1().peek(Token![,]) {
             input.parse::<Token![,]>()?;
-            let assignments = Punctuated::<Assignment, Token![,]>::parse_terminated(input)?;
-            Ok(Self {
-                query: query.value(),
-                assignments: assignments.into_iter().collect(),
-            })
+            Punctuated::<Assignment, Token![,]>::parse_terminated(input)?
+                .into_iter()
+                .collect()
         } else {
-            Ok(Self {
-                query: query.value(),
-                assignments: vec![],
-            })
-        }
+            vec![]
+        };
+        Ok(Self {
+            query: query.value(),
+            assignments,
+            span: query.span(),
+        })
     }
 }
 
@@ -69,7 +70,11 @@ fn build_lookup_map(assignments: Vec<Assignment>) -> Result<BTreeMap<String, Ass
 
 fn try_proc_sql(input: TokenStream) -> Result<TokenStream, Error> {
     // Parse the input tokens into a syntax tree
-    let SqlQuery { query, assignments } = parse2::<SqlQuery>(input)?;
+    let SqlQuery {
+        query,
+        assignments,
+        span,
+    } = parse2::<SqlQuery>(input)?;
 
     // Index binding values by their name
     let bindings = build_lookup_map(assignments)?;
@@ -86,7 +91,20 @@ fn try_proc_sql(input: TokenStream) -> Result<TokenStream, Error> {
     while let Some(cap) = re.captures_iter(&query[offset..]).next() {
         let outer = cap.get(0).unwrap(); // Outer capture: the whole binding including "{" and "}"
         let inner = cap.get(1).unwrap(); // Inner capture: only the binding name
-        let binding = inner.as_str();
+        let binding_part = inner.as_str();
+        let binding_vec = binding_part.split(":").collect::<Vec<_>>();
+        let (binding, binding_type) = match binding_vec.len() {
+            1 => (binding_vec[0], None),
+            2 => (binding_vec[0], Some(binding_vec[1])),
+            _ => {
+                return Err(Error::new(
+                    span,
+                    format!(
+                        "Only 1 or 2 parts are expected for variable identifiers, found '{binding_part}'"
+                    ),
+                ));
+            }
+        };
         let query_part = &query[offset..offset + outer.start()];
         offset += outer.end();
         if !query_part.is_empty() {
@@ -104,9 +122,25 @@ fn try_proc_sql(input: TokenStream) -> Result<TokenStream, Error> {
                 quote! { #val }
             },
         );
-        statements.push(quote! {
-            .push_bind(#value)
-        });
+        //statements.push(quote! {
+        //    .push_bind(#value)
+        //});
+        match binding_type {
+            Some("raw") => statements.push(quote! {
+                .push(crate::db::encode_sql(&(#value)))
+            }),
+            None => statements.push(quote! {
+                .push_bind(#value)
+            }),
+            Some(x) => {
+                return Err(Error::new(
+                    span,
+                    format!(
+                        "Unrecognized variable format type {x} for {binding_part}. Did you mean 'raw'?"
+                    ),
+                ));
+            }
+        };
     }
     // If template does not end with binding, we need to also push
     // the last part of the template
