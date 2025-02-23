@@ -1,4 +1,4 @@
-use crate::db::encode_sql;
+use crate::db::encode_sql_identifier;
 use macros::{format_uri, sql};
 use sqlx::query::Query;
 use sqlx::{Execute, Postgres};
@@ -15,19 +15,19 @@ fn test_uri_macro() {
 #[test]
 fn test_sql_encode() {
     let a = "sp-1";
-    assert_eq!(encode_sql("sp-1"), "sp-1");
+    assert_eq!(encode_sql_identifier("sp-1"), "sp-1");
 }
 
 #[test]
 fn test_sql_macro() {
     let sp = "sp-1";
     assert_eq!(
-        (sql!("SAVEPOINT {sp:raw}") as Query<Postgres, _>).sql(),
+        (sql!("SAVEPOINT {sp:id}") as Query<Postgres, _>).sql(),
         "SAVEPOINT sp-1"
     );
     let sp_str = "sp-2".to_string();
     assert_eq!(
-        (sql!("SAVEPOINT {sp_str:raw}") as Query<Postgres, _>).sql(),
+        (sql!("SAVEPOINT {sp_str:id}") as Query<Postgres, _>).sql(),
         "SAVEPOINT sp-2"
     );
 }

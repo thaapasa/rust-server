@@ -122,12 +122,12 @@ fn try_proc_sql(input: TokenStream) -> Result<TokenStream, Error> {
                 quote! { #val }
             },
         );
-        //statements.push(quote! {
-        //    .push_bind(#value)
-        //});
         match binding_type {
             Some("raw") => statements.push(quote! {
-                .push(crate::db::encode_sql(&(#value)))
+                .push(#value)
+            }),
+            Some("id") => statements.push(quote! {
+                .push(crate::db::encode_sql_identifier(&(#value)))
             }),
             None => statements.push(quote! {
                 .push_bind(#value)
@@ -136,7 +136,7 @@ fn try_proc_sql(input: TokenStream) -> Result<TokenStream, Error> {
                 return Err(Error::new(
                     span,
                     format!(
-                        "Unrecognized variable format type {x} for {binding_part}. Did you mean 'raw'?"
+                        "Unrecognized variable format type {x} for {binding_part}. Did you mean 'raw' or 'id'?"
                     ),
                 ));
             }

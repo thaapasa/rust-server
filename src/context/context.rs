@@ -56,7 +56,7 @@ impl Context for TxContext<'_> {
         &mut self.db
     }
     async fn begin(&mut self) -> Result<TxContext, InternalError> {
-        let db = TransactionalDatabase::begin(&mut self.db, Some("sp1".to_string())).await?;
+        let db = TransactionalDatabase::begin(&mut self.db, Some("sp\"1".to_string())).await?;
         Ok(TxContext {
             env: self.env.clone(),
             db,
