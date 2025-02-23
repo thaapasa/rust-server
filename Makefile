@@ -13,6 +13,7 @@ lint:
 
 .PHONY: test
 test:
+	cargo test -p sql_macros
 	cargo test -p macros
 	cargo test
 

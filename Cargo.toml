@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [workspace]
-members = ["macros"]
+members = ["lib/sql", "macros"]
 
 [workspace.dependencies]
 assert_json = { version = "0.1.0" }
@@ -50,4 +50,6 @@ tracing-subscriber = { workspace = true }
 urlencoding = { workspace = true }
 uuid = { workspace = true, features = ["serde"] }
 
+
+sql = { path = "./lib/sql" }
 macros = { path = "./macros" }

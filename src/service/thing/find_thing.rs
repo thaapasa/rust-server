@@ -1,7 +1,7 @@
 use crate::context::Context;
 use crate::db::DbThing;
 use crate::error::InternalError;
-use macros::sql;
+use sql::sql;
 use uuid::Uuid;
 
 pub async fn find_thing(

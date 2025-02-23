@@ -1,6 +1,6 @@
 use crate::context::{Context, Transactional};
 use crate::error::InternalError;
-use macros::sql;
+use sql::sql;
 use uuid::Uuid;
 
 pub async fn delete_thing(

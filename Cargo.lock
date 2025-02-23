@@ -1510,6 +1510,7 @@ dependencies = [
  "macros",
  "serde",
  "serde_json",
+ "sql",
  "sqlx",
  "tokio",
  "tower-http",
@@ -1720,6 +1721,24 @@ checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
 dependencies = [
  "base64ct",
  "der",
+]
+
+[[package]]
+name = "sql"
+version = "0.1.0"
+dependencies = [
+ "sql_macros",
+]
+
+[[package]]
+name = "sql_macros"
+version = "0.1.0"
+dependencies = [
+ "pretty_assertions",
+ "proc-macro2",
+ "quote",
+ "regex",
+ "syn",
 ]
 
 [[package]]

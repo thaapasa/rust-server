@@ -1,10 +1,8 @@
 use proc_macro::TokenStream as TS;
 
 use crate::proc_format_uri::proc_format_uri;
-use crate::proc_sql::proc_sql;
 
 mod proc_format_uri;
-mod proc_sql;
 
 /// This procedural macro allows you to construct URLs or URIs with all the variables
 /// automatically URL-encoded (using the urlencoding crate).
@@ -31,9 +29,4 @@ mod proc_sql;
 #[proc_macro]
 pub fn format_uri(input: TS) -> TS {
     proc_format_uri(input.into()).into()
-}
-
-#[proc_macro]
-pub fn sql(input: TS) -> TS {
-    proc_sql(input.into()).into()
 }

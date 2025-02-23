@@ -2,7 +2,7 @@ use crate::context::{Context, Transactional};
 use crate::db::DbThing;
 use crate::error::InternalError;
 use crate::service::find_thing;
-use macros::sql;
+use sql::sql;
 use sqlx::FromRow;
 use uuid::Uuid;
 

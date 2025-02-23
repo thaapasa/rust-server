@@ -1,5 +1,5 @@
-use crate::db::encode_sql_identifier;
-use macros::{format_uri, sql};
+use macros::format_uri;
+use sql::{encode_sql_identifier, sql};
 use sqlx::query::Query;
 use sqlx::{Execute, Postgres};
 

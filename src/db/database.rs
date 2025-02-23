@@ -1,5 +1,5 @@
 use crate::error::InternalError;
-use macros::sql;
+use sql::sql;
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::PgRow;
 use sqlx::{Execute, Executor, FromRow, PgPool, Pool, Postgres};

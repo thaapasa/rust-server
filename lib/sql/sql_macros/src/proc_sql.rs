@@ -127,7 +127,7 @@ fn try_proc_sql(input: TokenStream) -> Result<TokenStream, Error> {
                 .push(#value)
             }),
             Some("id") => statements.push(quote! {
-                .push(crate::db::encode_sql_identifier(&(#value)))
+                .push(sql::encode_sql_identifier(&(#value)))
             }),
             None => statements.push(quote! {
                 .push_bind(#value)
