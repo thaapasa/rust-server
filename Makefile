@@ -1,10 +1,10 @@
 .PHONY: check
 check:
-	cargo check
+	cargo check --tests --all-features
 
 .PHONY: clippy
 clippy:
-	cargo clippy
+	cargo clippy --tests --all-features
 
 .PHONY: lint
 lint:

@@ -112,6 +112,7 @@ impl Database {
 pub struct TransactionalDatabase<'a> {
     db: &'a mut Database,
     savepoint: Option<String>,
+    next_savepoint: usize,
 }
 
 impl Deref for TransactionalDatabase<'_> {
@@ -133,12 +134,29 @@ impl<'a> TransactionalDatabase<'a> {
         db: &'a mut Database,
         savepoint: Option<String>,
     ) -> Result<Self, InternalError> {
+        if let Database::DbPool(..) = db {
+            panic!("Can't begin transaction directly on DB pool");
+        }
         if let Some(savepoint) = savepoint.clone() {
             db.execute(sql!("SAVEPOINT {savepoint:id}")).await?;
         } else {
             db.execute(sql!("BEGIN")).await?;
         }
-        Ok(Self { db, savepoint })
+        Ok(Self {
+            db,
+            savepoint,
+            next_savepoint: 1,
+        })
+    }
+
+    pub fn nested_savepoint_id(&mut self) -> String {
+        let res = if let Some(savepoint) = &self.savepoint {
+            format!("{savepoint}.{}", self.next_savepoint)
+        } else {
+            format!("savepoint.{}", self.next_savepoint)
+        };
+        self.next_savepoint += 1;
+        res
     }
 
     pub async fn rollback(self) -> Result<(), InternalError> {

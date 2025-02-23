@@ -14,8 +14,7 @@ fn test_uri_macro() {
 
 #[test]
 fn test_sql_encode() {
-    let a = "sp-1";
-    assert_eq!(encode_sql_identifier("sp-1"), "sp-1");
+    assert_eq!(encode_sql_identifier("sp-1"), "\"sp-1\"");
 }
 
 #[test]
@@ -23,11 +22,11 @@ fn test_sql_macro() {
     let sp = "sp-1";
     assert_eq!(
         (sql!("SAVEPOINT {sp:id}") as Query<Postgres, _>).sql(),
-        "SAVEPOINT sp-1"
+        "SAVEPOINT \"sp-1\""
     );
     let sp_str = "sp-2".to_string();
     assert_eq!(
         (sql!("SAVEPOINT {sp_str:id}") as Query<Postgres, _>).sql(),
-        "SAVEPOINT sp-2"
+        "SAVEPOINT \"sp-2\""
     );
 }
