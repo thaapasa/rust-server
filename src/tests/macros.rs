@@ -21,12 +21,12 @@ fn test_sql_encode() {
 fn test_sql_macro() {
     let sp = "sp-1";
     assert_eq!(
-        (sql!("SAVEPOINT {sp:id}") as Query<Postgres, _>).sql(),
+        (sql!("SAVEPOINT ${sp:id}") as Query<Postgres, _>).sql(),
         "SAVEPOINT \"sp-1\""
     );
     let sp_str = "sp-2".to_string();
     assert_eq!(
-        (sql!("SAVEPOINT {sp_str:id}") as Query<Postgres, _>).sql(),
+        (sql!("SAVEPOINT ${sp_str:id}") as Query<Postgres, _>).sql(),
         "SAVEPOINT \"sp-2\""
     );
 }

@@ -8,6 +8,9 @@ pub async fn delete_thing(
     thing_id: Uuid,
 ) -> Result<(), InternalError> {
     ctx.db()
-        .execute(sql!("DELETE FROM things WHERE id={thing_id}"))
+        .execute(sql!(
+            // language=postgresql
+            "DELETE FROM things WHERE id=${thing_id}"
+        ))
         .await
 }

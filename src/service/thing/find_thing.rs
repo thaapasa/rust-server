@@ -9,6 +9,9 @@ pub async fn find_thing(
     thing_id: Uuid,
 ) -> Result<Option<DbThing>, InternalError> {
     ctx.db()
-        .fetch_optional(sql!("SELECT * FROM things WHERE id = {thing_id}"))
+        .fetch_optional(sql!(
+            // language=postgresql
+            "SELECT * FROM things WHERE id = ${thing_id}"
+        ))
         .await
 }

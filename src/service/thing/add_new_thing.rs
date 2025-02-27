@@ -23,8 +23,9 @@ pub async fn add_new_thing(
     let res = ctx
         .db()
         .fetch_one::<InsertResult>(sql!(
+            // language=postgresql
             "INSERT INTO things (name, description)
-             VALUES ({name}, {description})
+             VALUES (${name}, ${description})
              RETURNING id",
             name = thing.name,
             description = thing.description

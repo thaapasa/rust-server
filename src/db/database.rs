@@ -146,7 +146,7 @@ impl<'a> TransactionalDatabase<'a> {
             panic!("Can't begin transaction directly on DB pool");
         }
         if let Some(savepoint) = savepoint.clone() {
-            db.execute(sql!("SAVEPOINT {savepoint:id}")).await?;
+            db.execute(sql!("SAVEPOINT ${savepoint:id}")).await?;
         } else {
             db.execute(sql!("BEGIN")).await?;
         }
@@ -176,7 +176,7 @@ impl<'a> TransactionalDatabase<'a> {
         }
         if let Some(savepoint) = &self.savepoint {
             self.db
-                .execute(sql!("ROLLBACK TO SAVEPOINT {savepoint:id}"))
+                .execute(sql!("ROLLBACK TO SAVEPOINT ${savepoint:id}"))
                 .await?;
         } else {
             self.db.execute(sql!("ROLLBACK")).await?;
@@ -193,7 +193,7 @@ impl<'a> TransactionalDatabase<'a> {
         }
         if let Some(savepoint) = &self.savepoint {
             self.db
-                .execute(sql!("RELEASE SAVEPOINT {savepoint:id}"))
+                .execute(sql!("RELEASE SAVEPOINT ${savepoint:id}"))
                 .await?;
         } else {
             self.db.execute(sql!("COMMIT")).await?;

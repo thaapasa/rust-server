@@ -19,7 +19,7 @@ struct SqlQuery {
     span: Span,
 }
 
-const BINDING_RE: &str = "_?\\{([a-zA-Z_][a-zA-Z0-9_]*(:[a-zA-Z_][a-zA-Z0-9_]*)*)\\}";
+const BINDING_RE: &str = "_?\\$\\{([a-zA-Z_][a-zA-Z0-9_]*(:[a-zA-Z_][a-zA-Z0-9_]*)*)\\}";
 
 impl Parse for SqlQuery {
     fn parse(input: ParseStream) -> syn::Result<Self> {
@@ -183,7 +183,7 @@ mod tests {
     fn test_bind_values() {
         assert_eq!(
             stringify(proc_sql(
-                quote! {"INSERT INTO things (name, description) VALUES ({name}, {description})"}
+                quote! {"INSERT INTO things (name, description) VALUES (${name}, ${description})"}
             )),
             stringify(quote! {
                 sqlx::QueryBuilder::new("")
