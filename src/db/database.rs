@@ -4,13 +4,12 @@ use sqlx::pool::PoolConnection;
 use sqlx::postgres::{PgRow, PgTransactionManager};
 use sqlx::{Execute, Executor, FromRow, PgPool, Pool, Postgres, TransactionManager};
 use std::ops::{Deref, DerefMut};
-use std::sync::Arc;
 use tracing::{debug, warn};
 
 #[derive(Debug)]
 pub enum Database {
-    DbPool(Arc<Pool<Postgres>>),
-    DbConnection(Arc<Pool<Postgres>>, PoolConnection<Postgres>),
+    DbPool(Pool<Postgres>),
+    DbConnection(Pool<Postgres>, PoolConnection<Postgres>),
 }
 
 impl Clone for Database {
@@ -25,7 +24,7 @@ impl Clone for Database {
 impl Database {
     pub async fn init_pool(url: &str) -> Result<Self, InternalError> {
         let pool = PgPool::connect(url).await.map_err(InternalError::from)?;
-        Ok(Self::DbPool(Arc::new(pool)))
+        Ok(Self::DbPool(pool))
     }
 
     pub async fn fetch_rows<'q>(
