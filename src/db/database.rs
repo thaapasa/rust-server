@@ -1,10 +1,11 @@
 use crate::error::InternalError;
 use sql::sql;
 use sqlx::pool::PoolConnection;
-use sqlx::postgres::PgRow;
-use sqlx::{Execute, Executor, FromRow, PgPool, Pool, Postgres};
+use sqlx::postgres::{PgRow, PgTransactionManager};
+use sqlx::{Execute, Executor, FromRow, PgPool, Pool, Postgres, TransactionManager};
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
+use tracing::{debug, warn};
 
 #[derive(Debug)]
 pub enum Database {
@@ -49,6 +50,13 @@ impl Database {
             pool.clone(),
             pool.acquire().await.map_err(InternalError::from)?,
         ))
+    }
+
+    pub fn connection_mut(&mut self) -> Option<&mut PoolConnection<Postgres>> {
+        match self {
+            Self::DbPool(..) => None,
+            Self::DbConnection(_, conn) => Some(conn),
+        }
     }
 
     pub async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
@@ -113,6 +121,7 @@ pub struct TransactionalDatabase<'a> {
     db: &'a mut Database,
     savepoint: Option<String>,
     next_savepoint: usize,
+    finished: bool,
 }
 
 impl Deref for TransactionalDatabase<'_> {
@@ -146,6 +155,7 @@ impl<'a> TransactionalDatabase<'a> {
             db,
             savepoint,
             next_savepoint: 1,
+            finished: false,
         })
     }
 
@@ -159,23 +169,51 @@ impl<'a> TransactionalDatabase<'a> {
         res
     }
 
-    pub async fn rollback(self) -> Result<(), InternalError> {
+    pub async fn rollback(mut self) -> Result<(), InternalError> {
+        if self.finished {
+            return Err(InternalError::message(
+                "Transaction already finished".to_string(),
+            ));
+        }
         if let Some(savepoint) = &self.savepoint {
             self.db
                 .execute(sql!("ROLLBACK TO SAVEPOINT {savepoint:id}"))
-                .await
+                .await?;
         } else {
-            self.db.execute(sql!("ROLLBACK")).await
+            self.db.execute(sql!("ROLLBACK")).await?;
         }
+        self.finished = true;
+        Ok(())
     }
 
-    pub async fn commit(self) -> Result<(), InternalError> {
+    pub async fn commit(mut self) -> Result<(), InternalError> {
+        if self.finished {
+            return Err(InternalError::message(
+                "Transaction already finished".to_string(),
+            ));
+        }
         if let Some(savepoint) = &self.savepoint {
             self.db
                 .execute(sql!("RELEASE SAVEPOINT {savepoint:id}"))
-                .await
+                .await?;
         } else {
-            self.db.execute(sql!("COMMIT")).await
+            self.db.execute(sql!("COMMIT")).await?;
+        }
+        self.finished = true;
+        Ok(())
+    }
+}
+
+impl Drop for TransactionalDatabase<'_> {
+    fn drop(&mut self) {
+        debug!("Dropping transaction");
+        if !self.finished {
+            warn!("Unfinished transaction, starting rollback!");
+            PgTransactionManager::start_rollback(
+                self.db
+                    .connection_mut()
+                    .expect("Transaction should always have a connection"),
+            )
         }
     }
 }

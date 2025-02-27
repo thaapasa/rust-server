@@ -44,7 +44,6 @@ impl Context for ContextImpl {
         Ok(TxContext {
             env: self.env.clone(),
             db,
-            finished: false,
         })
     }
 }
@@ -52,7 +51,6 @@ impl Context for ContextImpl {
 pub struct TxContext<'a> {
     env: Environment,
     db: TransactionalDatabase<'a>,
-    finished: bool,
 }
 
 impl Context for TxContext<'_> {
@@ -68,7 +66,6 @@ impl Context for TxContext<'_> {
         Ok(TxContext {
             env: self.env.clone(),
             db,
-            finished: false,
         })
     }
 }
@@ -76,17 +73,9 @@ impl Context for TxContext<'_> {
 #[async_trait]
 impl Transactional for TxContext<'_> {
     async fn commit(mut self) -> Result<(), InternalError> {
-        if self.finished {
-            panic!("Transaction already finished")
-        }
-        self.finished = true;
         self.db.commit().await
     }
     async fn rollback(mut self) -> Result<(), InternalError> {
-        if self.finished {
-            panic!("Transaction already finished")
-        }
-        self.finished = true;
         self.db.rollback().await
     }
 }

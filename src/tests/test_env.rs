@@ -1,6 +1,7 @@
 use crate::context::{Config, Context, ContextImpl, Environment};
 use crate::db::run_db_migrations;
 use crate::error::InternalError;
+use crate::logging::configure_logging;
 use config::Config as ConfigCrate;
 use sql::sql;
 
@@ -9,19 +10,20 @@ pub struct TestEnvironment {
 }
 
 pub fn test_config() -> Result<Config, InternalError> {
-    Ok(Config::build(
+    Config::build(
         ConfigCrate::builder()
             .set_default("environment_name", "Test")?
             .set_default("server.port", "6100")?
             .set_default(
                 "database.url",
-                "postgreql://postgres:postgres@localhost:6110/postgres",
+                "postgresql://postgres:postgres@localhost:6110/postgres",
             )?,
-    )?)
+    )
 }
 
 impl TestEnvironment {
     pub async fn init() -> TestEnvironment {
+        configure_logging();
         let config = test_config().unwrap();
         let env = Environment::init_with_config(config).await.unwrap();
         let env = TestEnvironment { env };
