@@ -9,3 +9,14 @@ services:
       POSTGRES_DB: postgres
     ports:
       - "6010:5432"
+
+  postgres_test:
+    image: postgres:17.3
+    container_name: postgres_test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "6110:5432"

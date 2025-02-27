@@ -1,4 +1,5 @@
-use config::Config as ConfigCrate;
+use config::builder::DefaultState;
+use config::{Config as ConfigCrate, ConfigBuilder};
 use config::{ConfigError, Environment as ConfigEnvironment, File};
 use serde::Deserialize;
 
@@ -23,8 +24,12 @@ pub struct DatabaseSettings {
 
 impl Config {
     pub fn new_from_file(file_name: String) -> Result<Self, InternalError> {
-        let settings = ConfigCrate::builder()
-            .add_source(File::with_name(&file_name))
+        let builder = ConfigCrate::builder().add_source(File::with_name(&file_name));
+        Self::build(builder)
+    }
+
+    pub fn build(builder: ConfigBuilder<DefaultState>) -> Result<Self, InternalError> {
+        let settings = builder
             .add_source(ConfigEnvironment::default())
             .build()
             .map_err(InternalError::from)?;

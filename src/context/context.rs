@@ -23,6 +23,13 @@ pub struct ContextImpl {
     db: Database,
 }
 
+impl ContextImpl {
+    pub async fn new(env: Environment) -> Result<Self, InternalError> {
+        let db = env.db_conn().await?;
+        Ok(ContextImpl { env, db })
+    }
+}
+
 impl Context for ContextImpl {
     fn env(&self) -> &Environment {
         &self.env
@@ -96,7 +103,6 @@ impl Deref for SystemContext {
 
 impl SystemContext {
     pub async fn new(env: Environment) -> Result<Self, InternalError> {
-        let db = env.db_conn().await?;
-        Ok(SystemContext(ContextImpl { env, db }))
+        Ok(SystemContext(ContextImpl::new(env).await?))
     }
 }
