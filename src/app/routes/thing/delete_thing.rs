@@ -1,6 +1,6 @@
 use crate::app::api_error::ApiError;
-use crate::app::extractors::InputPath;
-use crate::context::{Context, SystemContext, Transactional};
+use crate::app::extractors::{InputPath, SystemContext};
+use crate::context::{Context, Transactional};
 use crate::service::delete_thing;
 use axum::body::Body;
 use http::Response;

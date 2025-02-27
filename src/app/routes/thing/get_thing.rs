@@ -1,7 +1,6 @@
 use crate::app::api_error::ApiError;
-use crate::app::extractors::InputPath;
+use crate::app::extractors::{InputPath, SystemContext};
 use crate::app::models::ApiThing;
-use crate::context::SystemContext;
 use crate::service::find_thing;
 use axum::Json;
 use uuid::Uuid;

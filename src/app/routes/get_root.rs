@@ -1,4 +1,5 @@
-use crate::context::{Context, SystemContext};
+use crate::app::extractors::SystemContext;
+use crate::context::Context;
 use axum::Json;
 use serde::Serialize;
 

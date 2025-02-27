@@ -1,6 +1,7 @@
 use crate::app::api_error::ApiError;
+use crate::app::extractors::SystemContext;
 use crate::app::models::{ApiThing, ApiThingData};
-use crate::context::{Context, SystemContext, Transactional};
+use crate::context::{Context, Transactional};
 use crate::service::add_new_thing;
 use axum::Json;
 

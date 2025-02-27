@@ -2,7 +2,6 @@ use crate::context::Environment;
 use crate::db::{Database, TransactionalDatabase};
 use crate::error::InternalError;
 use async_trait::async_trait;
-use std::ops::Deref;
 
 pub trait Context {
     fn env(&self) -> &Environment;
@@ -77,21 +76,5 @@ impl Transactional for TxContext<'_> {
     }
     async fn rollback(mut self) -> Result<(), InternalError> {
         self.db.rollback().await
-    }
-}
-
-pub struct SystemContext(pub ContextImpl);
-
-impl Deref for SystemContext {
-    type Target = ContextImpl;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl SystemContext {
-    pub async fn new(env: Environment) -> Result<Self, InternalError> {
-        Ok(SystemContext(ContextImpl::new(env).await?))
     }
 }
