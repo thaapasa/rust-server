@@ -1,5 +1,4 @@
 use crate::error::InternalError;
-use sql::sql;
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::{PgRow, PgTransactionManager};
 use sqlx::{Execute, Executor, FromRow, PgPool, Pool, Postgres, TransactionManager};
@@ -118,8 +117,6 @@ impl Database {
 
 pub struct TransactionalDatabase<'a> {
     db: &'a mut Database,
-    savepoint: Option<String>,
-    next_savepoint: usize,
     finished: bool,
 }
 
@@ -138,34 +135,16 @@ impl DerefMut for TransactionalDatabase<'_> {
 }
 
 impl<'a> TransactionalDatabase<'a> {
-    pub async fn begin(
-        db: &'a mut Database,
-        savepoint: Option<String>,
-    ) -> Result<Self, InternalError> {
-        if let Database::DbPool(..) = db {
-            panic!("Can't begin transaction directly on DB pool");
-        }
-        if let Some(savepoint) = savepoint.clone() {
-            db.execute(sql!("SAVEPOINT ${savepoint:id}")).await?;
+    pub async fn begin(db: &'a mut Database) -> Result<Self, InternalError> {
+        if let Database::DbConnection(.., conn) = db {
+            PgTransactionManager::begin(conn).await?;
         } else {
-            db.execute(sql!("BEGIN")).await?;
+            panic!("Can't begin transaction directly on DB pool");
         }
         Ok(Self {
             db,
-            savepoint,
-            next_savepoint: 1,
             finished: false,
         })
-    }
-
-    pub fn nested_savepoint_id(&mut self) -> String {
-        let res = if let Some(savepoint) = &self.savepoint {
-            format!("{savepoint}.{}", self.next_savepoint)
-        } else {
-            format!("savepoint.{}", self.next_savepoint)
-        };
-        self.next_savepoint += 1;
-        res
     }
 
     pub async fn rollback(mut self) -> Result<(), InternalError> {
@@ -174,13 +153,12 @@ impl<'a> TransactionalDatabase<'a> {
                 "Transaction already finished".to_string(),
             ));
         }
-        if let Some(savepoint) = &self.savepoint {
-            self.db
-                .execute(sql!("ROLLBACK TO SAVEPOINT ${savepoint:id}"))
-                .await?;
+        if let Database::DbConnection(.., ref mut conn) = *self {
+            PgTransactionManager::rollback(conn.as_mut()).await?;
         } else {
-            self.db.execute(sql!("ROLLBACK")).await?;
+            panic!("Can't rollback transaction directly on DB pool");
         }
+
         self.finished = true;
         Ok(())
     }
@@ -191,12 +169,10 @@ impl<'a> TransactionalDatabase<'a> {
                 "Transaction already finished".to_string(),
             ));
         }
-        if let Some(savepoint) = &self.savepoint {
-            self.db
-                .execute(sql!("RELEASE SAVEPOINT ${savepoint:id}"))
-                .await?;
+        if let Database::DbConnection(.., ref mut conn) = *self {
+            PgTransactionManager::commit(conn.as_mut()).await?;
         } else {
-            self.db.execute(sql!("COMMIT")).await?;
+            panic!("Can't commit transaction directly on DB pool");
         }
         self.finished = true;
         Ok(())

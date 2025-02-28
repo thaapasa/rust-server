@@ -39,7 +39,7 @@ impl Context for ContextImpl {
     }
 
     async fn begin(&mut self) -> Result<TxContext, InternalError> {
-        let db = TransactionalDatabase::begin(&mut self.db, None).await?;
+        let db = TransactionalDatabase::begin(&mut self.db).await?;
         Ok(TxContext {
             env: self.env.clone(),
             db,
@@ -60,8 +60,7 @@ impl Context for TxContext<'_> {
         &mut self.db
     }
     async fn begin(&mut self) -> Result<TxContext, InternalError> {
-        let savepoint_id = self.db.nested_savepoint_id();
-        let db = TransactionalDatabase::begin(&mut self.db, Some(savepoint_id)).await?;
+        let db = TransactionalDatabase::begin(&mut self.db).await?;
         Ok(TxContext {
             env: self.env.clone(),
             db,

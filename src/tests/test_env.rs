@@ -1,7 +1,6 @@
 use crate::context::{Config, Context, ContextImpl, Environment};
 use crate::db::run_db_migrations;
 use crate::error::InternalError;
-use crate::logging::configure_logging;
 use config::Config as ConfigCrate;
 use sql::sql;
 
@@ -23,7 +22,6 @@ pub fn test_config() -> Result<Config, InternalError> {
 
 impl TestEnvironment {
     pub async fn init() -> TestEnvironment {
-        configure_logging();
         let config = test_config().unwrap();
         let env = Environment::init_with_config(config).await.unwrap();
         let env = TestEnvironment { env };
@@ -43,7 +41,9 @@ impl TestEnvironment {
 }
 
 async fn reset_db(ctx: &mut impl Context) -> Result<(), InternalError> {
-    ctx.db().execute(sql!("DROP SCHEMA public CASCADE")).await?;
+    ctx.db()
+        .execute(sql!("DROP SCHEMA IF EXISTS public CASCADE"))
+        .await?;
     ctx.db().execute(sql!("CREATE SCHEMA public")).await?;
     Ok(())
 }

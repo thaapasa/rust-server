@@ -15,7 +15,7 @@ lint:
 test:
 	cargo test -p sql_macros
 	cargo test -p macros
-	cargo test
+	cargo test -- --test-threads=1
 
 .PHONY: start
 start:
