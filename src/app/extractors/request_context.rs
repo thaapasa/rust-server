@@ -4,7 +4,7 @@ use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
 use axum::Extension;
 
-impl<S> FromRequestParts<S> for SystemContext
+impl<S> FromRequestParts<S> for RequestContext
 where
     S: Send + Sync,
 {
@@ -12,7 +12,7 @@ where
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
         match Extension::<Environment>::from_request_parts(parts, state).await {
-            Ok(env) => Ok(SystemContext(
+            Ok(env) => Ok(RequestContext(
                 ContextImpl::new(env.0).await.map_err(ApiError::from)?,
             )),
             Err(e) => panic!("Environment missing: {e}"),
@@ -20,4 +20,4 @@ where
     }
 }
 
-pub struct SystemContext(pub ContextImpl);
+pub struct RequestContext(pub ContextImpl);

@@ -1,5 +1,5 @@
 use crate::app::api_error::ApiError;
-use crate::app::extractors::{InputPath, SystemContext};
+use crate::app::extractors::{InputPath, RequestContext};
 use crate::context::{Context, Transactional};
 use crate::service::delete_thing;
 use axum::body::Body;
@@ -7,7 +7,7 @@ use http::Response;
 use uuid::Uuid;
 
 pub async fn delete_thing_handler(
-    SystemContext(mut ctx): SystemContext,
+    RequestContext(mut ctx): RequestContext,
     InputPath(thing_id): InputPath<Uuid>,
 ) -> Result<Response<Body>, ApiError> {
     let mut tx_ctx = ctx.begin().await?;

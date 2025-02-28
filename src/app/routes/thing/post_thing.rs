@@ -1,12 +1,12 @@
 use crate::app::api_error::ApiError;
-use crate::app::extractors::SystemContext;
+use crate::app::extractors::RequestContext;
 use crate::app::models::{ApiThing, ApiThingData};
 use crate::context::{Context, Transactional};
 use crate::service::add_new_thing;
 use axum::Json;
 
 pub async fn post_thing_handler(
-    SystemContext(mut ctx): SystemContext,
+    RequestContext(mut ctx): RequestContext,
     Json(thing_data): Json<ApiThingData>,
 ) -> Result<Json<ApiThing>, ApiError> {
     let mut tx_ctx = ctx.begin().await?;
