@@ -13,6 +13,7 @@ mod error;
 mod logging;
 mod service;
 
+mod macros;
 #[cfg(test)]
 mod tests;
 
