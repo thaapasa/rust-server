@@ -1,45 +1,14 @@
+use std::ops::{Deref, DerefMut};
+
 use futures_core::future::BoxFuture;
 use futures_util::FutureExt;
 use sqlx::{
-    Acquire, Execute, Executor, FromRow, PgConnection, PgPool, PgTransaction, Pool, Postgres,
+    Acquire, Execute, Executor, FromRow, PgPool, PgTransaction, Pool, Postgres,
 };
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::{PgQueryResult, PgRow};
 
 use crate::error::InternalError;
-
-#[derive(Debug)]
-pub enum Database {
-    DbPool(Pool<Postgres>),
-    DbConnection(Pool<Postgres>, PoolConnection<Postgres>),
-}
-
-impl Clone for Database {
-    fn clone(&self) -> Self {
-        match self {
-            Self::DbPool(pool) => Self::DbPool(pool.clone()),
-            _ => panic!("Can't clone DB connections"),
-        }
-    }
-}
-
-impl Database {
-    pub async fn init_pool(url: &str) -> Result<Self, InternalError> {
-        let pool = PgPool::connect(url).await.map_err(InternalError::from)?;
-        Ok(Self::DbPool(pool))
-    }
-
-    pub async fn connection(&self) -> Result<Self, InternalError> {
-        let pool = match self {
-            Self::DbPool(pool) => pool,
-            Self::DbConnection(pool, _) => pool,
-        };
-        Ok(Self::DbConnection(
-            pool.clone(),
-            pool.acquire().await.map_err(InternalError::from)?,
-        ))
-    }
-}
 
 pub trait DatabaseAccess {
     fn execute<'e, 'q: 'e, E>(
@@ -57,42 +26,81 @@ pub trait DatabaseAccess {
         E: 'q + Execute<'q, Postgres>;
 }
 
-impl DatabaseAccess for Database {
-    fn execute<'e, 'q: 'e, E>(
+#[derive(Debug, Clone)]
+pub struct DatabasePool(Pool<Postgres>);
+
+impl Deref for DatabasePool {
+    type Target = Pool<Postgres>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for DatabasePool {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl DatabasePool {
+    pub async fn init_pool(url: &str) -> Result<Self, InternalError> {
+        let pool = PgPool::connect(url).await.map_err(InternalError::from)?;
+        Ok(DatabasePool(pool))
+    }
+}
+
+impl DatabaseAccess for DatabasePool {
+    fn execute<'e, 'q: 'e, E: 'q + Execute<'q, Postgres>>(
         &'e mut self,
         query: E,
-    ) -> BoxFuture<'e, Result<PgQueryResult, InternalError>>
-    where
-        E: 'q + Execute<'q, Postgres>,
-    {
-        match self {
-            Self::DbPool(pool) => Box::pin(async move {
-                let mut conn = pool.acquire().await.map_err(InternalError::from)?;
-                conn.execute(query).await.map_err(InternalError::from)
-            })
-            .boxed(),
-            Self::DbConnection(_, ref mut conn) => {
-                Box::pin(async move { conn.execute(query).await.map_err(InternalError::from) })
-            }
-        }
+    ) -> BoxFuture<'e, Result<PgQueryResult, InternalError>> {
+        Box::pin(async move {
+            let mut conn = self.0.acquire().await.map_err(InternalError::from)?;
+            conn.execute(query).await.map_err(InternalError::from)
+        })
+        .boxed()
     }
 
-    fn fetch_rows<'e, 'q: 'e, E>(
+    fn fetch_rows<'e, 'q: 'e, E: 'q + Execute<'q, Postgres>>(
         &'e mut self,
         query: E,
-    ) -> BoxFuture<'e, Result<Vec<PgRow>, InternalError>>
-    where
-        E: 'q + Execute<'q, Postgres>,
-    {
-        match self {
-            Self::DbPool(pool) => Box::pin(async move {
-                let mut conn = pool.acquire().await.map_err(InternalError::from)?;
-                conn.fetch_all(query).await.map_err(InternalError::from)
-            }),
-            Self::DbConnection(_, conn) => {
-                Box::pin(async move { conn.fetch_all(query).await.map_err(InternalError::from) })
-            }
-        }
+    ) -> BoxFuture<'e, Result<Vec<PgRow>, InternalError>> {
+        Box::pin(async move {
+            let mut conn = self.0.acquire().await.map_err(InternalError::from)?;
+            conn.fetch_all(query).await.map_err(InternalError::from)
+        })
+    }
+}
+
+#[derive(Debug)]
+pub struct DatabaseConnection(PoolConnection<Postgres>);
+
+impl Deref for DatabaseConnection {
+    type Target = PoolConnection<Postgres>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for DatabaseConnection {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl DatabaseAccess for DatabaseConnection {
+    fn execute<'e, 'q: 'e, E: 'q + Execute<'q, Postgres>>(
+        &'e mut self,
+        query: E,
+    ) -> BoxFuture<'e, Result<PgQueryResult, InternalError>> {
+        Box::pin(async move { self.0.execute(query).await.map_err(InternalError::from) })
+    }
+
+    fn fetch_rows<'e, 'q: 'e, E: 'q + Execute<'q, Postgres>>(
+        &'e mut self,
+        query: E,
+    ) -> BoxFuture<'e, Result<Vec<PgRow>, InternalError>> {
+        Box::pin(async move { self.0.fetch_all(query).await.map_err(InternalError::from) })
     }
 }
 
@@ -102,13 +110,10 @@ pub struct TransactionalDatabase<'a> {
 }
 
 impl DatabaseAccess for TransactionalDatabase<'_> {
-    fn execute<'e, 'q: 'e, E>(
+    fn execute<'e, 'q: 'e, E: 'q + Execute<'q, Postgres>>(
         &'e mut self,
         query: E,
-    ) -> BoxFuture<'e, Result<PgQueryResult, InternalError>>
-    where
-        E: 'q + Execute<'q, Postgres>,
-    {
+    ) -> BoxFuture<'e, Result<PgQueryResult, InternalError>> {
         Box::pin(async move {
             self.connection
                 .execute(query)
@@ -117,13 +122,10 @@ impl DatabaseAccess for TransactionalDatabase<'_> {
         })
     }
 
-    fn fetch_rows<'e, 'q: 'e, E>(
+    fn fetch_rows<'e, 'q: 'e, E: 'q + Execute<'q, Postgres>>(
         &'e mut self,
         query: E,
-    ) -> BoxFuture<'e, Result<Vec<PgRow>, InternalError>>
-    where
-        E: 'q + Execute<'q, Postgres>,
-    {
+    ) -> BoxFuture<'e, Result<Vec<PgRow>, InternalError>> {
         Box::pin(async move {
             self.connection
                 .fetch_all(query)
@@ -136,16 +138,6 @@ impl DatabaseAccess for TransactionalDatabase<'_> {
 impl TransactionalDatabase<'_> {
     pub async fn begin_from_pool(pool: &Pool<Postgres>) -> Result<Self, InternalError> {
         let tx = pool.begin().await.map_err(InternalError::from)?;
-        Ok(TransactionalDatabase {
-            finished: false,
-            connection: tx,
-        })
-    }
-
-    pub async fn begin_from_conn(
-        conn: &mut PgConnection,
-    ) -> Result<TransactionalDatabase, InternalError> {
-        let tx = conn.begin().await.map_err(InternalError::from)?;
         Ok(TransactionalDatabase {
             finished: false,
             connection: tx,

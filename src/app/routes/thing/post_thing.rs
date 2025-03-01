@@ -20,7 +20,7 @@ pub async fn post_thing_handler(
     triple_add_tx.commit().await?;
     add_new_thing(&mut double_add_tx, thing_data.clone().into()).await?;
     double_add_tx.rollback().await?;
-
     tx_ctx.commit().await?;
+
     Ok(Json(thing.into()))
 }
