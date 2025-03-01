@@ -1,12 +1,14 @@
-use crate::context::Environment;
-use crate::db::{Database, TransactionalDatabase};
-use crate::error::InternalError;
 use async_trait::async_trait;
+
+use crate::context::Environment;
+use crate::db::{Database, DatabaseAccess, TransactionalDatabase};
+use crate::db::Database::{DbConnection, DbPool};
+use crate::error::InternalError;
 
 pub trait Context {
     fn env(&self) -> &Environment;
 
-    fn db(&mut self) -> &mut Database;
+    fn db(&mut self) -> &mut impl DatabaseAccess;
 
     async fn begin(&mut self) -> Result<TxContext, InternalError>;
 }
@@ -34,12 +36,15 @@ impl Context for ContextImpl {
         &self.env
     }
 
-    fn db(&mut self) -> &mut Database {
+    fn db(&mut self) -> &mut impl DatabaseAccess {
         &mut self.db
     }
 
     async fn begin(&mut self) -> Result<TxContext, InternalError> {
-        let db = TransactionalDatabase::begin(&mut self.db).await?;
+        let db = match self.db {
+            DbPool(ref pool) => TransactionalDatabase::begin_from_pool(pool).await?,
+            DbConnection(_, ref mut conn) => TransactionalDatabase::begin_from_conn(conn).await?,
+        };
         Ok(TxContext {
             env: self.env.clone(),
             db,
@@ -56,14 +61,14 @@ impl Context for TxContext<'_> {
     fn env(&self) -> &Environment {
         &self.env
     }
-    fn db(&mut self) -> &mut Database {
+    fn db(&mut self) -> &mut impl DatabaseAccess {
         &mut self.db
     }
     async fn begin(&mut self) -> Result<TxContext, InternalError> {
-        let db = TransactionalDatabase::begin(&mut self.db).await?;
+        let tx = self.db.begin().await?;
         Ok(TxContext {
             env: self.env.clone(),
-            db,
+            db: tx,
         })
     }
 }

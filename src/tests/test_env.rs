@@ -1,8 +1,10 @@
-use crate::context::{Config, Context, ContextImpl, Environment};
-use crate::db::run_db_migrations;
-use crate::error::InternalError;
 use config::Config as ConfigCrate;
+
 use sql::sql;
+
+use crate::context::{Config, Context, ContextImpl, Environment};
+use crate::db::{DatabaseAccess, run_db_migrations};
+use crate::error::InternalError;
 
 pub struct TestEnvironment {
     pub env: Environment,

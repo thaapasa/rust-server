@@ -1,7 +1,10 @@
-use crate::context::{Context, Transactional};
-use crate::error::InternalError;
-use sql::sql;
 use uuid::Uuid;
+
+use sql::sql;
+
+use crate::context::{Context, Transactional};
+use crate::db::DatabaseAccess;
+use crate::error::InternalError;
 
 pub async fn delete_thing(
     ctx: &mut (impl Context + Transactional),
@@ -12,5 +15,6 @@ pub async fn delete_thing(
             // language=postgresql
             "DELETE FROM things WHERE id=${thing_id}"
         ))
-        .await
+        .await?;
+    Ok(())
 }

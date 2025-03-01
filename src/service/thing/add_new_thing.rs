@@ -1,10 +1,12 @@
-use crate::context::{Context, Transactional};
-use crate::db::DbThing;
-use crate::error::InternalError;
-use crate::service::find_thing;
-use sql::sql;
 use sqlx::FromRow;
 use uuid::Uuid;
+
+use sql::sql;
+
+use crate::context::{Context, Transactional};
+use crate::db::{DatabaseAccessExt, DbThing};
+use crate::error::InternalError;
+use crate::service::find_thing;
 
 pub struct ThingData {
     pub name: String,

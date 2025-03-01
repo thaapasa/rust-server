@@ -1,9 +1,12 @@
-use crate::error::InternalError;
+use futures_core::future::BoxFuture;
+use futures_util::FutureExt;
+use sqlx::{
+    Acquire, Execute, Executor, FromRow, PgConnection, PgPool, PgTransaction, Pool, Postgres,
+};
 use sqlx::pool::PoolConnection;
-use sqlx::postgres::{PgRow, PgTransactionManager};
-use sqlx::{Execute, Executor, FromRow, PgPool, Pool, Postgres, TransactionManager};
-use std::ops::{Deref, DerefMut};
-use tracing::{debug, warn};
+use sqlx::postgres::{PgQueryResult, PgRow};
+
+use crate::error::InternalError;
 
 #[derive(Debug)]
 pub enum Database {
@@ -26,19 +29,6 @@ impl Database {
         Ok(Self::DbPool(pool))
     }
 
-    pub async fn fetch_rows<'q>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<Vec<PgRow>, InternalError> {
-        match self {
-            Self::DbPool(pool) => {
-                let mut conn = pool.acquire().await.map_err(InternalError::from)?;
-                conn.fetch_all(query).await.map_err(InternalError::from)
-            }
-            Self::DbConnection(_, conn) => conn.fetch_all(query).await.map_err(InternalError::from),
-        }
-    }
-
     pub async fn connection(&self) -> Result<Self, InternalError> {
         let pool = match self {
             Self::DbPool(pool) => pool,
@@ -49,15 +39,175 @@ impl Database {
             pool.acquire().await.map_err(InternalError::from)?,
         ))
     }
+}
 
-    pub fn connection_mut(&mut self) -> Option<&mut PoolConnection<Postgres>> {
+pub trait DatabaseAccess {
+    fn execute<'e, 'q: 'e, E>(
+        &'e mut self,
+        query: E,
+    ) -> BoxFuture<'e, Result<PgQueryResult, InternalError>>
+    where
+        E: 'q + Execute<'q, Postgres>;
+
+    fn fetch_rows<'e, 'q: 'e, E>(
+        &'e mut self,
+        query: E,
+    ) -> BoxFuture<'e, Result<Vec<PgRow>, InternalError>>
+    where
+        E: 'q + Execute<'q, Postgres>;
+}
+
+impl DatabaseAccess for Database {
+    fn execute<'e, 'q: 'e, E>(
+        &'e mut self,
+        query: E,
+    ) -> BoxFuture<'e, Result<PgQueryResult, InternalError>>
+    where
+        E: 'q + Execute<'q, Postgres>,
+    {
         match self {
-            Self::DbPool(..) => None,
-            Self::DbConnection(_, conn) => Some(conn),
+            Self::DbPool(pool) => Box::pin(async move {
+                let mut conn = pool.acquire().await.map_err(InternalError::from)?;
+                conn.execute(query).await.map_err(InternalError::from)
+            })
+            .boxed(),
+            Self::DbConnection(_, ref mut conn) => {
+                Box::pin(async move { conn.execute(query).await.map_err(InternalError::from) })
+            }
         }
     }
 
-    pub async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
+    fn fetch_rows<'e, 'q: 'e, E>(
+        &'e mut self,
+        query: E,
+    ) -> BoxFuture<'e, Result<Vec<PgRow>, InternalError>>
+    where
+        E: 'q + Execute<'q, Postgres>,
+    {
+        match self {
+            Self::DbPool(pool) => Box::pin(async move {
+                let mut conn = pool.acquire().await.map_err(InternalError::from)?;
+                conn.fetch_all(query).await.map_err(InternalError::from)
+            }),
+            Self::DbConnection(_, conn) => {
+                Box::pin(async move { conn.fetch_all(query).await.map_err(InternalError::from) })
+            }
+        }
+    }
+}
+
+pub struct TransactionalDatabase<'a> {
+    finished: bool,
+    connection: PgTransaction<'a>,
+}
+
+impl DatabaseAccess for TransactionalDatabase<'_> {
+    fn execute<'e, 'q: 'e, E>(
+        &'e mut self,
+        query: E,
+    ) -> BoxFuture<'e, Result<PgQueryResult, InternalError>>
+    where
+        E: 'q + Execute<'q, Postgres>,
+    {
+        Box::pin(async move {
+            self.connection
+                .execute(query)
+                .await
+                .map_err(InternalError::from)
+        })
+    }
+
+    fn fetch_rows<'e, 'q: 'e, E>(
+        &'e mut self,
+        query: E,
+    ) -> BoxFuture<'e, Result<Vec<PgRow>, InternalError>>
+    where
+        E: 'q + Execute<'q, Postgres>,
+    {
+        Box::pin(async move {
+            self.connection
+                .fetch_all(query)
+                .await
+                .map_err(InternalError::from)
+        })
+    }
+}
+
+impl TransactionalDatabase<'_> {
+    pub async fn begin_from_pool(pool: &Pool<Postgres>) -> Result<Self, InternalError> {
+        let tx = pool.begin().await.map_err(InternalError::from)?;
+        Ok(TransactionalDatabase {
+            finished: false,
+            connection: tx,
+        })
+    }
+
+    pub async fn begin_from_conn(
+        conn: &mut PgConnection,
+    ) -> Result<TransactionalDatabase, InternalError> {
+        let tx = conn.begin().await.map_err(InternalError::from)?;
+        Ok(TransactionalDatabase {
+            finished: false,
+            connection: tx,
+        })
+    }
+
+    pub async fn begin(&mut self) -> Result<TransactionalDatabase, InternalError> {
+        let tx = self.connection.begin().await.map_err(InternalError::from)?;
+        Ok(TransactionalDatabase {
+            finished: false,
+            connection: tx,
+        })
+    }
+
+    pub async fn rollback(mut self) -> Result<(), InternalError> {
+        if self.finished {
+            return Err(InternalError::message(
+                "Transaction already finished".to_string(),
+            ));
+        }
+        self.connection
+            .rollback()
+            .await
+            .map_err(InternalError::from)?;
+        self.finished = true;
+        Ok(())
+    }
+
+    pub async fn commit(mut self) -> Result<(), InternalError> {
+        if self.finished {
+            return Err(InternalError::message(
+                "Transaction already finished".to_string(),
+            ));
+        }
+        self.connection
+            .commit()
+            .await
+            .map_err(InternalError::from)?;
+        self.finished = true;
+        Ok(())
+    }
+}
+
+pub trait DatabaseAccessExt {
+    async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
+        &mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<Vec<T>, InternalError>;
+
+    async fn fetch_one<'q, T: for<'r> FromRow<'r, PgRow>>(
+        &mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<T, InternalError>;
+
+    async fn fetch_optional<'q, T: for<'r> FromRow<'r, PgRow>>(
+        &mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> Result<Option<T>, InternalError>;
+}
+
+impl<D: DatabaseAccess> DatabaseAccessExt for D {
+    async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
         &mut self,
         query: impl Execute<'q, Postgres> + 'q,
     ) -> Result<Vec<T>, InternalError> {
@@ -68,7 +218,7 @@ impl Database {
             .collect()
     }
 
-    pub async fn fetch_one<'q, T: for<'r> FromRow<'r, PgRow>>(
+    async fn fetch_one<'q, T: for<'r> FromRow<'r, PgRow>>(
         &mut self,
         query: impl Execute<'q, Postgres> + 'q,
     ) -> Result<T, InternalError> {
@@ -84,7 +234,7 @@ impl Database {
         ))
     }
 
-    pub async fn fetch_optional<'q, T: for<'r> FromRow<'r, PgRow>>(
+    async fn fetch_optional<'q, T: for<'r> FromRow<'r, PgRow>>(
         &mut self,
         query: impl Execute<'q, Postgres> + 'q,
     ) -> Result<Option<T>, InternalError> {
@@ -96,99 +246,5 @@ impl Database {
             )));
         }
         Ok(rows.pop())
-    }
-
-    pub async fn execute<'q>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<(), InternalError> {
-        match self {
-            Self::DbPool(pool) => {
-                let mut conn = pool.acquire().await.map_err(InternalError::from)?;
-                conn.execute(query).await.map_err(InternalError::from)?;
-            }
-            Self::DbConnection(_, conn) => {
-                conn.execute(query).await.map_err(InternalError::from)?;
-            }
-        }
-        Ok(())
-    }
-}
-
-pub struct TransactionalDatabase<'a> {
-    db: &'a mut Database,
-    finished: bool,
-}
-
-impl Deref for TransactionalDatabase<'_> {
-    type Target = Database;
-
-    fn deref(&self) -> &Self::Target {
-        self.db
-    }
-}
-
-impl DerefMut for TransactionalDatabase<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.db
-    }
-}
-
-impl<'a> TransactionalDatabase<'a> {
-    pub async fn begin(db: &'a mut Database) -> Result<Self, InternalError> {
-        if let Database::DbConnection(.., conn) = db {
-            PgTransactionManager::begin(conn).await?;
-        } else {
-            panic!("Can't begin transaction directly on DB pool");
-        }
-        Ok(Self {
-            db,
-            finished: false,
-        })
-    }
-
-    pub async fn rollback(mut self) -> Result<(), InternalError> {
-        if self.finished {
-            return Err(InternalError::message(
-                "Transaction already finished".to_string(),
-            ));
-        }
-        if let Database::DbConnection(.., ref mut conn) = *self {
-            PgTransactionManager::rollback(conn.as_mut()).await?;
-        } else {
-            panic!("Can't rollback transaction directly on DB pool");
-        }
-
-        self.finished = true;
-        Ok(())
-    }
-
-    pub async fn commit(mut self) -> Result<(), InternalError> {
-        if self.finished {
-            return Err(InternalError::message(
-                "Transaction already finished".to_string(),
-            ));
-        }
-        if let Database::DbConnection(.., ref mut conn) = *self {
-            PgTransactionManager::commit(conn.as_mut()).await?;
-        } else {
-            panic!("Can't commit transaction directly on DB pool");
-        }
-        self.finished = true;
-        Ok(())
-    }
-}
-
-impl Drop for TransactionalDatabase<'_> {
-    fn drop(&mut self) {
-        debug!("Dropping transaction");
-        if !self.finished {
-            warn!("Unfinished transaction, starting rollback!");
-            PgTransactionManager::start_rollback(
-                self.db
-                    .connection_mut()
-                    .expect("Transaction should always have a connection"),
-            )
-        }
     }
 }
