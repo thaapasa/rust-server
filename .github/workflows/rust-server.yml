@@ -1,6 +1,6 @@
 name: Rust server
 
-on: [push]
+on: [ push ]
 
 env:
   CARGO_TERM_COLOR: always
@@ -10,9 +10,24 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres:latest
+        ports:
+          - 6100:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-    - uses: actions/checkout@v4
-    - name: Lint
-      run: make lint
-    - name: Run tests
-      run: make test
+      - uses: actions/checkout@v4
+      - name: Lint
+        run: make lint
+      - name: Run tests
+        run: make test
