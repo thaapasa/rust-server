@@ -1,7 +1,8 @@
-use crate::app::api_error::ApiError;
 use axum::extract::{FromRequestParts, Path};
 use http::request::Parts;
 use serde::de::DeserializeOwned;
+
+use crate::app::api_error::ApiError;
 
 pub struct InputPath<T>(pub T);
 

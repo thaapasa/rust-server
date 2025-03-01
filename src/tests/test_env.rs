@@ -2,7 +2,7 @@ use config::Config as ConfigCrate;
 
 use sql::sql;
 
-use crate::context::{Config, Context, ContextImpl, Environment};
+use crate::context::{Config, Context, Environment, RootContext};
 use crate::db::{DatabaseAccess, run_db_migrations};
 use crate::error::InternalError;
 
@@ -38,7 +38,7 @@ impl TestEnvironment {
     }
 
     pub async fn ctx(&self) -> impl Context {
-        ContextImpl::new(self.env.clone()).await.unwrap()
+        RootContext::new(self.env.clone())
     }
 }
 

@@ -1,11 +1,13 @@
-use crate::error::InternalError;
-use axum::http::{header, StatusCode};
-use axum::response::{IntoResponse, Response};
-use axum::Json;
-use serde_json::{json, Value};
 use std::error::Error;
 use std::fmt::Display;
+
+use axum::http::{header, StatusCode};
+use axum::Json;
+use axum::response::{IntoResponse, Response};
+use serde_json::{json, Value};
 use tracing::error;
+
+use crate::error::InternalError;
 
 #[derive(Debug)]
 pub struct ApiError {

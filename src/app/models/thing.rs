@@ -1,13 +1,14 @@
-use crate::db::DbThing;
-use crate::service::ThingData;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+use crate::db::DbThing;
+use crate::service::ThingData;
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct ApiThingData {
-    name: String,
-    description: Option<String>,
+    pub name: String,
+    pub description: Option<String>,
 }
 
 #[derive(Serialize, Debug)]
@@ -40,11 +41,12 @@ impl From<ApiThingData> for ThingData {
 
 #[cfg(test)]
 mod tests {
-    use crate::app::models::ApiThing;
     use assert_json::assert_json;
     use chrono::Utc;
     use serde_json::Value;
     use uuid::uuid;
+
+    use crate::app::models::ApiThing;
 
     #[test]
     fn test_thing_serialization() {

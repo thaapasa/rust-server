@@ -2,15 +2,13 @@ use std::ops::{Deref, DerefMut};
 
 use futures_core::future::BoxFuture;
 use futures_util::FutureExt;
-use sqlx::{
-    Acquire, Execute, Executor, FromRow, PgPool, PgTransaction, Pool, Postgres,
-};
+use sqlx::{Acquire, Execute, Executor, FromRow, PgPool, PgTransaction, Pool, Postgres};
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::{PgQueryResult, PgRow};
 
 use crate::error::InternalError;
 
-pub trait DatabaseAccess {
+pub trait DatabaseAccess: Send + Sync {
     fn execute<'e, 'q: 'e, E>(
         &'e mut self,
         query: E,
@@ -27,18 +25,12 @@ pub trait DatabaseAccess {
 }
 
 #[derive(Debug, Clone)]
-pub struct DatabasePool(Pool<Postgres>);
+pub struct DatabasePool(PgPool);
 
 impl Deref for DatabasePool {
-    type Target = Pool<Postgres>;
+    type Target = PgPool;
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl DerefMut for DatabasePool {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 

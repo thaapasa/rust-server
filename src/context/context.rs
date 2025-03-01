@@ -1,38 +1,37 @@
-use async_trait::async_trait;
+use std::future::Future;
 
 use crate::context::Environment;
 use crate::db::{DatabaseAccess, DatabasePool, TransactionalDatabase};
 use crate::error::InternalError;
 
-#[async_trait]
 pub trait Context: Send + Sync {
     fn env(&self) -> &Environment;
 
     fn db(&mut self) -> &mut impl DatabaseAccess;
 
-    async fn begin(&mut self) -> Result<TxContext, InternalError>;
+    fn begin(
+        &mut self,
+    ) -> impl Future<Output = Result<impl Context + Transactional, InternalError>> + Send;
 }
 
-#[async_trait]
 pub trait Transactional: Send + Sync {
-    async fn commit(self) -> Result<(), InternalError>;
-    async fn rollback(self) -> Result<(), InternalError>;
+    fn commit(self) -> impl Future<Output = Result<(), InternalError>> + Send;
+    fn rollback(self) -> impl Future<Output = Result<(), InternalError>> + Send;
 }
 
-pub struct ContextImpl {
+pub struct RootContext {
     env: Environment,
     pool: DatabasePool,
 }
 
-impl ContextImpl {
-    pub async fn new(env: Environment) -> Result<Self, InternalError> {
+impl RootContext {
+    pub fn new(env: Environment) -> Self {
         let pool = env.db_pool.clone();
-        Ok(ContextImpl { env, pool })
+        RootContext { env, pool }
     }
 }
 
-#[async_trait]
-impl Context for ContextImpl {
+impl Context for RootContext {
     fn env(&self) -> &Environment {
         &self.env
     }
@@ -41,7 +40,7 @@ impl Context for ContextImpl {
         &mut self.pool
     }
 
-    async fn begin(&mut self) -> Result<TxContext, InternalError> {
+    async fn begin(&mut self) -> Result<impl Context + Transactional, InternalError> {
         let db = TransactionalDatabase::begin_from_pool(&self.pool).await?;
         Ok(TxContext {
             env: self.env.clone(),
@@ -55,16 +54,16 @@ pub struct TxContext<'a> {
     db: TransactionalDatabase<'a>,
 }
 
-#[async_trait]
 impl Context for TxContext<'_> {
     fn env(&self) -> &Environment {
         &self.env
     }
+
     fn db(&mut self) -> &mut impl DatabaseAccess {
         &mut self.db
     }
 
-    async fn begin(&mut self) -> Result<TxContext, InternalError> {
+    async fn begin(&mut self) -> Result<impl Context + Transactional, InternalError> {
         let tx = self.db.begin().await?;
         Ok(TxContext {
             env: self.env.clone(),
@@ -73,11 +72,11 @@ impl Context for TxContext<'_> {
     }
 }
 
-#[async_trait]
 impl Transactional for TxContext<'_> {
     async fn commit(self) -> Result<(), InternalError> {
         self.db.commit().await
     }
+
     async fn rollback(self) -> Result<(), InternalError> {
         self.db.rollback().await
     }

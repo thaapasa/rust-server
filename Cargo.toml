@@ -10,7 +10,7 @@ members = ["lib/sql", "macros"]
 assert_json = { version = "0.1.0" }
 async-trait = { version = "0.1.86" }
 async-stream = { version = "0.3.6" }
-axum = { version = "0.8.1", features = ["default", "tracing"] }
+axum = { version = "0.8.1", features = ["default", "tracing", "macros", "http2"] }
 futures-core = { version = "0.3.31" }
 futures-util = { version = "0.3.31" }
 bytes = { version = "1.10.0" }

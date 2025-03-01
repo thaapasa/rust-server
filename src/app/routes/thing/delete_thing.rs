@@ -1,10 +1,12 @@
-use crate::app::api_error::ApiError;
-use crate::app::extractors::{InputPath, RequestContext};
-use crate::context::{Context, Transactional};
-use crate::service::delete_thing;
 use axum::body::Body;
 use http::Response;
 use uuid::Uuid;
+
+use crate::app::api_error::ApiError;
+use crate::app::extractors::{InputPath, RequestContext};
+use crate::context::Context;
+use crate::context::Transactional;
+use crate::service::delete_thing;
 
 pub async fn delete_thing_handler(
     RequestContext(mut ctx): RequestContext,

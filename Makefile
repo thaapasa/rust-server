@@ -17,6 +17,10 @@ test:
 	cargo test -p macros
 	cargo test -- --test-threads=1
 
+.PHONY: clean
+clean:
+	rm -rf target
+
 .PHONY: start
 start:
 	CONFIG_FILE=.dev/settings.toml cargo run main
