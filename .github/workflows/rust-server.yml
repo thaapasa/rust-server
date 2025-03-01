@@ -12,9 +12,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:latest
+        image: postgres:17.3
         ports:
-          - 6100:5432
+          - 6110:5432
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
