@@ -4,7 +4,7 @@ use uuid::Uuid;
 use sql::sql;
 
 use crate::context::{Context, Transactional};
-use crate::db::{DatabaseAccessExt, DbThing};
+use crate::db::{DatabaseAccess, DbThing};
 use crate::error::InternalError;
 use crate::service::find_thing;
 

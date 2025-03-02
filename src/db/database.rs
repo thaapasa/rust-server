@@ -22,6 +22,53 @@ pub trait DatabaseAccess: Send + Sync {
     ) -> BoxFuture<'e, Result<Vec<PgRow>, InternalError>>
     where
         E: 'q + Execute<'q, Postgres>;
+
+    fn fetch_all<'e, 'q: 'e, T: for<'r> FromRow<'r, PgRow>>(
+        &'e mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> BoxFuture<'e, Result<Vec<T>, InternalError>> {
+        Box::pin(async move {
+            self.fetch_rows(query)
+                .await?
+                .into_iter()
+                .map(|row| FromRow::from_row(&row).map_err(InternalError::from))
+                .collect()
+        })
+    }
+
+    fn fetch_one<'e, 'q: 'e, T: for<'r> FromRow<'r, PgRow>>(
+        &'e mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> BoxFuture<'e, Result<T, InternalError>> {
+        Box::pin(async move {
+            let mut rows = self.fetch_all(query).await?;
+            if rows.len() > 1 {
+                return Err(InternalError::message(format!(
+                    "Too many results, expected exactly one result, received {}",
+                    rows.len()
+                )));
+            }
+            rows.pop().ok_or(InternalError::message(
+                "No results for query, expected exactly one result".to_string(),
+            ))
+        })
+    }
+
+    fn fetch_optional<'e, 'q: 'e, T: for<'r> FromRow<'r, PgRow>>(
+        &'e mut self,
+        query: impl Execute<'q, Postgres> + 'q,
+    ) -> BoxFuture<'e, Result<Option<T>, InternalError>> {
+        Box::pin(async move {
+            let mut rows = self.fetch_all(query).await?;
+            if rows.len() > 1 {
+                return Err(InternalError::message(format!(
+                    "Too many results, expected one or zero results, received {}",
+                    rows.len()
+                )));
+            }
+            Ok(rows.pop())
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -170,65 +217,5 @@ impl TransactionalDatabase<'_> {
             .map_err(InternalError::from)?;
         self.finished = true;
         Ok(())
-    }
-}
-
-pub trait DatabaseAccessExt {
-    async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<Vec<T>, InternalError>;
-
-    async fn fetch_one<'q, T: for<'r> FromRow<'r, PgRow>>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<T, InternalError>;
-
-    async fn fetch_optional<'q, T: for<'r> FromRow<'r, PgRow>>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<Option<T>, InternalError>;
-}
-
-impl<D: DatabaseAccess> DatabaseAccessExt for D {
-    async fn fetch_all<'q, T: for<'r> FromRow<'r, PgRow>>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<Vec<T>, InternalError> {
-        self.fetch_rows(query)
-            .await?
-            .into_iter()
-            .map(|row| FromRow::from_row(&row).map_err(InternalError::from))
-            .collect()
-    }
-
-    async fn fetch_one<'q, T: for<'r> FromRow<'r, PgRow>>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<T, InternalError> {
-        let mut rows = self.fetch_all(query).await?;
-        if rows.len() > 1 {
-            return Err(InternalError::message(format!(
-                "Too many results, expected exactly one result, received {}",
-                rows.len()
-            )));
-        }
-        rows.pop().ok_or(InternalError::message(
-            "No results for query, expected exactly one result".to_string(),
-        ))
-    }
-
-    async fn fetch_optional<'q, T: for<'r> FromRow<'r, PgRow>>(
-        &mut self,
-        query: impl Execute<'q, Postgres> + 'q,
-    ) -> Result<Option<T>, InternalError> {
-        let mut rows = self.fetch_all(query).await?;
-        if rows.len() > 1 {
-            return Err(InternalError::message(format!(
-                "Too many results, expected one or zero results, received {}",
-                rows.len()
-            )));
-        }
-        Ok(rows.pop())
     }
 }

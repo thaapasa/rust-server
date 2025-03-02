@@ -3,7 +3,7 @@ use uuid::Uuid;
 use sql::sql;
 
 use crate::context::Context;
-use crate::db::{DatabaseAccessExt, DbThing};
+use crate::db::{DatabaseAccess, DbThing};
 use crate::error::InternalError;
 
 pub async fn find_thing(

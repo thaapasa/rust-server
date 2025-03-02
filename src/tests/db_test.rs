@@ -5,7 +5,7 @@ use tokio::test;
 use sql::sql;
 
 use crate::context::{Context, Transactional};
-use crate::db::{DatabaseAccess, DatabaseAccessExt};
+use crate::db::DatabaseAccess;
 use crate::set;
 use crate::tests::TestEnvironment;
 
