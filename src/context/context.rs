@@ -1,7 +1,7 @@
 use std::future::Future;
 
 use crate::context::Environment;
-use crate::db::{DatabaseAccess, DatabasePool, TransactionalDatabase};
+use crate::db::{DatabaseAccess, DatabasePool, TransactionalConnection};
 use crate::error::InternalError;
 
 pub trait Context: Send + Sync {
@@ -41,17 +41,17 @@ impl Context for RootContext {
     }
 
     async fn begin(&mut self) -> Result<impl Context + Transactional, InternalError> {
-        let db = TransactionalDatabase::begin_from_pool(&self.pool).await?;
+        let db = TransactionalConnection::begin_from_pool(&self.pool).await?;
         Ok(TxContext {
             env: self.env.clone(),
-            db,
+            tx: db,
         })
     }
 }
 
 pub struct TxContext<'a> {
     env: Environment,
-    db: TransactionalDatabase<'a>,
+    tx: TransactionalConnection<'a>,
 }
 
 impl Context for TxContext<'_> {
@@ -60,24 +60,24 @@ impl Context for TxContext<'_> {
     }
 
     fn db(&mut self) -> &mut impl DatabaseAccess {
-        &mut self.db
+        &mut self.tx
     }
 
     async fn begin(&mut self) -> Result<impl Context + Transactional, InternalError> {
-        let tx = self.db.begin().await?;
+        let tx = self.tx.begin().await?;
         Ok(TxContext {
             env: self.env.clone(),
-            db: tx,
+            tx,
         })
     }
 }
 
 impl Transactional for TxContext<'_> {
     async fn commit(self) -> Result<(), InternalError> {
-        self.db.commit().await
+        self.tx.commit().await
     }
 
     async fn rollback(self) -> Result<(), InternalError> {
-        self.db.rollback().await
+        self.tx.rollback().await
     }
 }

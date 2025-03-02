@@ -143,51 +143,41 @@ impl DatabaseAccess for DatabaseConnection {
     }
 }
 
-pub struct TransactionalDatabase<'a> {
+pub struct TransactionalConnection<'a> {
     finished: bool,
-    connection: PgTransaction<'a>,
+    tx: PgTransaction<'a>,
 }
 
-impl DatabaseAccess for TransactionalDatabase<'_> {
+impl DatabaseAccess for TransactionalConnection<'_> {
     fn execute<'e, 'q: 'e, E: 'q + Execute<'q, Postgres>>(
         &'e mut self,
         query: E,
     ) -> BoxFuture<'e, Result<PgQueryResult, InternalError>> {
-        Box::pin(async move {
-            self.connection
-                .execute(query)
-                .await
-                .map_err(InternalError::from)
-        })
+        Box::pin(async move { self.tx.execute(query).await.map_err(InternalError::from) })
     }
 
     fn fetch_rows<'e, 'q: 'e, E: 'q + Execute<'q, Postgres>>(
         &'e mut self,
         query: E,
     ) -> BoxFuture<'e, Result<Vec<PgRow>, InternalError>> {
-        Box::pin(async move {
-            self.connection
-                .fetch_all(query)
-                .await
-                .map_err(InternalError::from)
-        })
+        Box::pin(async move { self.tx.fetch_all(query).await.map_err(InternalError::from) })
     }
 }
 
-impl TransactionalDatabase<'_> {
+impl TransactionalConnection<'_> {
     pub async fn begin_from_pool(pool: &Pool<Postgres>) -> Result<Self, InternalError> {
         let tx = pool.begin().await.map_err(InternalError::from)?;
-        Ok(TransactionalDatabase {
+        Ok(TransactionalConnection {
             finished: false,
-            connection: tx,
+            tx,
         })
     }
 
-    pub async fn begin(&mut self) -> Result<TransactionalDatabase, InternalError> {
-        let tx = self.connection.begin().await.map_err(InternalError::from)?;
-        Ok(TransactionalDatabase {
+    pub async fn begin(&mut self) -> Result<TransactionalConnection, InternalError> {
+        let tx = self.tx.begin().await.map_err(InternalError::from)?;
+        Ok(TransactionalConnection {
             finished: false,
-            connection: tx,
+            tx,
         })
     }
 
@@ -197,10 +187,7 @@ impl TransactionalDatabase<'_> {
                 "Transaction already finished".to_string(),
             ));
         }
-        self.connection
-            .rollback()
-            .await
-            .map_err(InternalError::from)?;
+        self.tx.rollback().await.map_err(InternalError::from)?;
         self.finished = true;
         Ok(())
     }
@@ -211,10 +198,7 @@ impl TransactionalDatabase<'_> {
                 "Transaction already finished".to_string(),
             ));
         }
-        self.connection
-            .commit()
-            .await
-            .map_err(InternalError::from)?;
+        self.tx.commit().await.map_err(InternalError::from)?;
         self.finished = true;
         Ok(())
     }
