@@ -2,9 +2,9 @@ use std::ops::{Deref, DerefMut};
 
 use futures_core::future::BoxFuture;
 use futures_util::FutureExt;
-use sqlx::{Acquire, Execute, Executor, FromRow, PgPool, PgTransaction, Pool, Postgres};
 use sqlx::pool::PoolConnection;
 use sqlx::postgres::{PgQueryResult, PgRow};
+use sqlx::{Acquire, Execute, Executor, FromRow, PgPool, PgTransaction, Pool, Postgres};
 
 use crate::error::InternalError;
 
@@ -144,7 +144,6 @@ impl DatabaseAccess for DatabaseConnection {
 }
 
 pub struct TransactionalConnection<'a> {
-    finished: bool,
     tx: PgTransaction<'a>,
 }
 
@@ -167,39 +166,21 @@ impl DatabaseAccess for TransactionalConnection<'_> {
 impl TransactionalConnection<'_> {
     pub async fn begin_from_pool(pool: &Pool<Postgres>) -> Result<Self, InternalError> {
         let tx = pool.begin().await.map_err(InternalError::from)?;
-        Ok(TransactionalConnection {
-            finished: false,
-            tx,
-        })
+        Ok(TransactionalConnection { tx })
     }
 
     pub async fn begin(&mut self) -> Result<TransactionalConnection, InternalError> {
         let tx = self.tx.begin().await.map_err(InternalError::from)?;
-        Ok(TransactionalConnection {
-            finished: false,
-            tx,
-        })
+        Ok(TransactionalConnection { tx })
     }
 
-    pub async fn rollback(mut self) -> Result<(), InternalError> {
-        if self.finished {
-            return Err(InternalError::message(
-                "Transaction already finished".to_string(),
-            ));
-        }
+    pub async fn rollback(self) -> Result<(), InternalError> {
         self.tx.rollback().await.map_err(InternalError::from)?;
-        self.finished = true;
         Ok(())
     }
 
-    pub async fn commit(mut self) -> Result<(), InternalError> {
-        if self.finished {
-            return Err(InternalError::message(
-                "Transaction already finished".to_string(),
-            ));
-        }
+    pub async fn commit(self) -> Result<(), InternalError> {
         self.tx.commit().await.map_err(InternalError::from)?;
-        self.finished = true;
         Ok(())
     }
 }
